@@ -163,7 +163,7 @@ object Format {
     description = "String representation of a universally unique identifier (UUID)")
 
   case object DateTime extends Format(
-    name = "date-time",
+    name = "date-time-iso8601",
     example = "2014-04-29T11:56:52.000Z",
     description = "Date time format in ISO 8601")
 
