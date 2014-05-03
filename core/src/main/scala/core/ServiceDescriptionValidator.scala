@@ -115,15 +115,24 @@ case class ServiceDescriptionValidator(apiJson: String) {
     }
   }
 
+  private val NoContent = Set(204, 304)
   private def validateResponses(): Seq[String] = {
-    serviceDescription.get.resources.flatMap { r =>
-      r.operations.filter { op => op.responses.isEmpty }.map { op =>
-        val path = op.path match {
-          case None => ""
-          case Some(p: String) => s" $p"
-        }
-        s"${r.name} ${op.method}${path} missing responses element"
+    serviceDescription.get.resources.flatMap { resource =>
+      def path(op: Operation) = op.path match {
+        case None => ""
+        case Some(p: String) => s" $p"
       }
+      val emptyResponses = resource.operations.collect {
+        case op if op.responses.isEmpty =>
+          s"${resource.name} ${op.method}${path(op)} missing responses element"
+      }
+      val invalidResponses = resource.operations.flatMap { op =>
+        op.responses.collect {
+          case response if NoContent(response.code) =>
+            s"${resource.name} ${op.method}${path(op)} contains response code ${response.code}, but ${response.code} should not have a body."
+        }
+      }
+      emptyResponses ++ invalidResponses
     }
   }
 

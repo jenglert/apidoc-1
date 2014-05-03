@@ -61,10 +61,7 @@ case class Reference(resource: String, field: String) {
 
 }
 
-
-case class Response(code: Int,
-                    resource: Option[String] = None,
-                    multiple: Boolean = false)
+case class Response(code: Int, dataType: Datatype)
 
 object Resource {
 
@@ -96,10 +93,11 @@ object Resource {
              }
            }
 
-           val responses = (json \ "responses").asOpt[JsArray] match {
-             case None => Seq.empty
-             case Some(a: JsArray) => {
-               a.value.map { data => Response.parse(data.as[JsObject]) }
+           val responses = (json \ "responses") match {
+             case _: JsUndefined => Nil
+             case JsObject(fields) => fields.map {
+               case (code: String, JsString(typeName)) =>
+                 new Response(code.toInt, Datatype(typeName))
              }
            }
 
@@ -122,36 +120,6 @@ object Resource {
 
 }
 
-object Response {
-
-  def parse(json: JsObject): Response = {
-    val code = (json \ "code").as[Int]
-    (json \ "result") match {
-      case (v: JsUndefined) => {
-        Response(code = code)
-      }
-
-      case v: JsString => {
-        Response(code = code,
-                 resource = Some(v.value),
-                 multiple = false)
-      }
-
-      case v: JsArray => {
-        assert(v.value.size == 1,
-               "When an array, response must contain exactly 1 element: %s".format(v.value.mkString(", ")))
-        Response(code = code,
-                 resource = Some(v.value.head.as[JsString].value),
-                 multiple = true)
-      }
-
-      case v: Any => {
-        sys.error(s"Unhandled response value[$v]")
-      }
-    }
-  }
-}
-
 sealed abstract class Datatype(val name: String)
 
 object Datatype {
@@ -161,12 +129,26 @@ object Datatype {
   case object Long extends Datatype("long")
   case object Boolean extends Datatype("boolean")
   case object Decimal extends Datatype("decimal")
-  case class UserType(override val name: String) extends Datatype(name)
+  case class List(override val name: String, valueType: Datatype) extends Datatype(name)
+  case class UserType (override val name: String) extends Datatype(name)
 
   val All = Seq(String, Integer, Long, Boolean, Decimal)
 
-  def findByName(name: String): Option[Datatype] = {
-    All.find { dt => dt.name == name }
+  private val arrayRegex = """^\[(.*)\]$""".r
+
+  def apply(name: String): Datatype = arrayRegex.findFirstMatchIn(name).map {
+    m =>
+      val valueType = apply(m.group(1))
+      new List(name, valueType)
+  }.getOrElse {
+    name match {
+      case String.name => String
+      case Integer.name => Integer
+      case Long.name => Long
+      case Boolean.name => Boolean
+      case Decimal.name => Decimal
+      case _ => new UserType(name)
+    }
   }
 
 }
@@ -182,7 +164,7 @@ object Format {
 
   case object DateTime extends Format(
     name = "date-time",
-    example = "2014-04-29T11:56:52Z",
+    example = "2014-04-29T11:56:52.000Z",
     description = "Date time format in ISO 8601")
 
   val All = Seq(Uuid, DateTime)
@@ -198,9 +180,7 @@ object Field {
 
   def apply(json: JsObject): Field = {
     val datatypeName = (json \ "type").as[String]
-    val datatype = Datatype.findByName(datatypeName).getOrElse {
-      new Datatype.UserType(datatypeName)
-    }
+    val datatype = Datatype(datatypeName)
 
     val default = asOptString(json, "default")
     default.map { v => assertValidDefault(datatype, v) }
