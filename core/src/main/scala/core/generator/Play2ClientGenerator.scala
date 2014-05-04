@@ -166,6 +166,7 @@ $objArgs
       val builder = List.newBuilder[String]
       builder += "val qBuilder = List.newBuilder[(String, String)]"
       operation.parameters.foreach { param =>
+        // TODO better logic for transforming the parameter value into a string
         if (param.isOption) {
           builder += s"""qBuilder ++= ${param.name}.map("${param.originalName}" -> _.toString)"""
         } else {
