@@ -197,7 +197,6 @@ object Field {
   def apply(json: JsObject,
     // call-by-name to support circular references
     resources: => Seq[Resource]): Field = {
-    println(json)
     val reference = (json \ "references").asOpt[String].map { Reference(_, resources) }
     val datatype = reference.map { r =>
       new Datatype.Reference(r)

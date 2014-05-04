@@ -104,33 +104,28 @@ $body
 
   def body: String = {
     val jsonFormatDefs = {
-      val defs = ssd.resources.map(JsonFormatDefs(_).src.indent(4)).mkString("\n")
       s"""
-  object JsonFormats {
-    implicit val jsonReadsUUID: Reads[UUID] = __.read[String].map(UUID.fromString)
+  implicit val jsonReadsUUID: Reads[UUID] = __.read[String].map(UUID.fromString)
 
-    implicit val jsonWritesUUID = new Writes[UUID] {
-      override def writes(value: UUID) = {
-        JsString(value.toString)
-      }
+  implicit val jsonWritesUUID = new Writes[UUID] {
+    override def writes(value: UUID) = {
+      JsString(value.toString)
     }
-
-    import org.joda.time.format.ISODateTimeFormat
-
-    private val dateTimeFormat = ISODateTimeFormat.basicDateTime
-
-    implicit val jsonDateTimeReads: Reads[DateTime] = {
-      __.read[String].map(dateTimeFormat.parseDateTime)
-    }
-
-    implicit val jsonDateTimeWrites = new Writes[DateTime] {
-      override def writes(value: DateTime) = {
-        JsString(dateTimeFormat.print(value))
-      }
-    }
-$defs
   }
-  import JsonFormats._
+
+  import org.joda.time.format.ISODateTimeFormat
+
+  private val iso8601 = ISODateTimeFormat.basicDateTime
+
+  implicit val jsonDateTimeReads: Reads[DateTime] = {
+    __.read[String].map(iso8601.parseDateTime)
+  }
+
+  implicit val jsonDateTimeWrites = new Writes[DateTime] {
+    override def writes(value: DateTime) = {
+      JsString(iso8601.print(value))
+    }
+  }
 """
     }
     val resourceDefs = resources.map(_.src.indent).mkString("\n")
@@ -206,78 +201,67 @@ ${body.indent}
     def operations: Seq[Source] = resource.operations.map(Operation(_))
 
     override def src: String = s"""
+object ${resource.name} {
+  $companionBody
+}
+
+case class ${name}(${argList})
+
 object ${resource.name}Client extends Client {
   def resource = "$path"
-$body
+$clientBody
 }
-case class ${name}(${argList})
 """
 
-    def body: String = {
+    def clientBody: String = {
       val methods = operations.map(_.src.indent).mkString("\n")
       methods
     }
+
+    def companionBody: String = {
+s"""
+  implicit val reads: Reads[${resource.name}] = ${jsonReads.indent(4)}
+
+  implicit val writes: Writes[${resource.name}] = ${jsonWrites.indent(4)}
+"""
+    }
+
+    def jsonReads: String = {
+      def readFields = {
+        resource.fields.map { field =>
+          val typeName = field.dataType.name
+          if (field.isOption) {
+            s"""${field.name} = (json \\ "${field.originalName}").asOpt[${typeName}]"""
+          } else {
+            s"""${field.name} = (json \\ "${field.originalName}").as[${typeName}]"""
+          }
+        }.mkString(",\n")
+      }
+s"""
+new Reads[${resource.name}] {
+  def reads(json: JsValue) = JsSuccess {
+    new ${resource.name}(
+${readFields.indent(6)}
+    )
   }
+}
+"""
+    }
 
-  case class JsonFormatDefs(resource: ScalaResource) extends Source {
-    def jsonReadsBody: String = {
-      if (resource.fields.size > 1) {
-        val inner = resource.fields.map { field =>
-          val typeName = field.dataType.name
-          if (field.isOption) {
-            s"""(__ \\ "${field.originalName}").readNullable[${typeName}]"""
-          } else {
-            s"""(__ \\ "${field.originalName}").read[${typeName}]"""
-          }
-        }.mkString("\n     and ")
-s"""
-  ($inner)(${resource.name})"""
-      } else {
-        val field = resource.fields.head
-s"""
-  new Reads[${resource.name}] {
-    override def reads(json: JsValue) = {
-      (json \\ "${field.originalName}").validate[${field.typeName}].map { value =>
-        new ${resource.name}(
-          ${field.name} = value
-        )
+    def jsonWrites: String = {
+      def writeFields = {
+        resource.fields.map { field =>
+          s""""${field.originalName}" -> Json.toJson(value.${field.name})"""
+        }.mkString(",\n")
       }
-    }
-  }"""
-      }
-    }
-
-    def jsonWritesBody: String = {
-      if (resource.fields.size > 1) {
-        val inner = resource.fields.map { field =>
-          val typeName = field.dataType.name
-          if (field.isOption) {
-            s"""(__ \\ "${field.name}").writeNullable[${typeName}]"""
-          } else {
-            s"""(__ \\ "${field.name}").write[${typeName}]"""
-          }
-        }.mkString("\n     and ")
 s"""
-  ($inner)(unlift(${resource.name}.unapply))"""
-      } else {
-        val field = resource.fields.head
-s"""
-  new Writes[${resource.name}] {
-    override def writes(value: ${resource.name}) = {
-      Json.obj(
-        "${field.originalName}" -> Json.toJson(value.${field.name})
-      )
-    }
-  }"""
-      }
-    }
-
-    override def src: String = {
-s"""
-// ${resource.name} JSON format
-implicit val jsonReads${resource.name}: Reads[${resource.name}] =$jsonReadsBody
-
-implicit val jsonWrites${resource.name}: Writes[${resource.name}] =$jsonWritesBody
+new Writes[${resource.name}] {
+  def reads(value: ${resource.name}) = {
+    Json.obj(
+${writeFields.indent(6)}
+    )
+  }
+}
 """
     }
   }

@@ -22,11 +22,11 @@ class ScalaServiceDescription(serviceDescription: ServiceDescription)
   val description = serviceDescription.description.map(textToComment).getOrElse("")
 
   val resources = serviceDescription.resources.map { resource =>
-    new ScalaResource(resource)
+    new ScalaResource(resource, Set.empty)
   }
 }
 
-class ScalaResource(resource: Resource)
+class ScalaResource(resource: Resource, includedFields: Set[String])
 {
   val name = singular(underscoreToInitCap(resource.name))
 
@@ -34,8 +34,15 @@ class ScalaResource(resource: Resource)
 
   val description = resource.description.map(textToComment).getOrElse("")
 
-  val fields = resource.fields.map { field =>
-    new ScalaField(field)
+  val fields = {
+    val included: Seq[Field] = if (includedFields.isEmpty) {
+      resource.fields
+    } else {
+      resource.fields.filter(f => includedFields(f.name))
+    }
+    included.map { field =>
+      new ScalaField(field)
+    }
   }.sorted
 
   val argList = fieldsToArgList(fields)
@@ -96,6 +103,11 @@ class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
   }
 }
 
+// TODO ScalaDataType should mirror Datatype with its union type structure
+// so that we keep the information about references. This is important,
+// because a reference in a parameter declaration should generate the type
+// of the referenced field, whereas a reference in a field declaration needs
+// to generate a type with a subset of the fields of the referenced resource.
 class ScalaDataType(dataType: Datatype, format: Option[Format]) extends Source {
   import Datatype._
   import Format._
