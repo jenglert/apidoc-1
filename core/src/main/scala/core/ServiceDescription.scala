@@ -56,13 +56,15 @@ case class Field(name: String,
                  maximum: Option[Long] = None)
 
 case class Reference(resourceName: String,
-                     field: String,
+                     fieldName: String,
                      // call-by-name to support circularity
                      resourceFunc: () => Resource) {
 
-  lazy val label = s"$resourceName.$field"
+  lazy val label = s"$resourceName.$fieldName"
 
   lazy val resource = resourceFunc()
+
+  lazy val field = resource.fields.find(_.name == fieldName).get
 }
 
 case class Response(code: Int, dataType: Datatype)
@@ -139,7 +141,7 @@ object Datatype {
   case object Decimal extends Datatype("decimal")
   case class List(override val name: String, valueType: Datatype) extends Datatype(name)
   case class UserType (override val name: String) extends Datatype(name)
-  class Reference(underlying: core.Reference) extends Datatype(s"partial[${underlying.resourceName}") {
+  class Reference(val underlying: core.Reference) extends Datatype(s"partial[${underlying.resourceName}") {
     def resourceName = underlying.resourceName
   }
 
@@ -274,10 +276,10 @@ object Reference {
     require(parts.length == 2,
             s"Invalid reference[${value}]. Expected <resource name>.<field name>")
     val resourceName = parts.head
-    val field = parts.last
+    val fieldName = parts.last
     new Reference(
       resourceName = resourceName,
-      field = field,
+      fieldName = fieldName,
       resourceFunc = () => resources.find(_.name == resourceName).get
     )
   }

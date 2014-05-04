@@ -207,7 +207,7 @@ PUT(
           s"case r if r.status == ${status} => Response(r.status, r.json.as[$typeName])"
         }.mkString("\n")
         s""".map {
-${cases}
+${cases.indent}
   case r if r.status == 204 => Response(204, ()) // 204 has no body
   case r if r.status == 304 => Response(304, ()) // 304 has no body
   case r => Response(r.status, r.body)
@@ -232,7 +232,7 @@ object ${resource.name} {
   $companionBody
 }
 
-case class ${name}(${argList})
+case class $name($argList)
 
 object ${resource.name}Client extends Client {
   def resource = "$path"
@@ -283,7 +283,7 @@ ${readFields.indent(6)}
       }
 s"""
 new Writes[${resource.name}] {
-  def reads(value: ${resource.name}) = {
+  def writes(value: ${resource.name}) = {
     Json.obj(
 ${writeFields.indent(6)}
     )

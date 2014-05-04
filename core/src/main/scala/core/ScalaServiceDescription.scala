@@ -8,8 +8,22 @@ object ScalaUtil {
     lines.mkString("/**\n * ", "\n * ", "\n */\n")
   }
 
-  def fieldsToArgList(fields: Seq[ScalaField]) = {
-    fields.map(_.src.indent).mkString("\n", ",\n", "\n")
+  // TODO we need to separate the concept of field and parameter,
+  // since they have different semantics. otherwise, we are going
+  // to end up with more nasty methods like this
+  def fieldsToArgList(fields: Seq[ScalaField], isParams: Boolean) = {
+    val srcs = if (isParams) {
+      fields.map {
+        case field if field.isReference =>
+          val realType = field.dataType.asInstanceOf[ScalaDataType.Reference].field.dataType
+          val typeName = if (field.isOption) s"Option[${realType.name}] = None" else realType.name
+          s"${field.name}: $typeName"
+        case field => field.src
+      }
+    } else {
+      fields.map(_.src)
+    }
+    srcs.mkString("\n", ",\n", "\n").indent
   }
 }
 
@@ -45,7 +59,7 @@ class ScalaResource(resource: Resource, includedFields: Set[String])
     }
   }.sorted
 
-  def argList = fieldsToArgList(fields)
+  def argList = fieldsToArgList(fields, isParams = false)
 
   def operations = resource.operations.map { operation =>
     new ScalaOperation(operation)
@@ -66,7 +80,7 @@ class ScalaOperation(operation: Operation)
 
   def responseTypeName = name.capitalize
 
-  def argList = fieldsToArgList(parameters)
+  def argList = fieldsToArgList(parameters, isParams = true)
 
   def responses = operation.responses.map(new ScalaResponse(_))
 }
@@ -76,7 +90,9 @@ class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
 
   def originalName: String = field.name
 
-  def dataType: ScalaDataType = new ScalaDataType(field.dataType, field.format)
+  def dataType: ScalaDataType = ScalaDataType(field.dataType, field.format)
+
+  def isReference = dataType.getClass == classOf[ScalaDataType.Reference]
 
   def description: String = field.description.map(textToComment).getOrElse("")
 
@@ -110,35 +126,76 @@ class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
 case class ScalaResponse(response: Response) {
   def code = response.code
 
-  def dataType = new ScalaDataType(response.dataType, None)
+  def dataType = ScalaDataType(response.dataType, None)
 }
 
-// TODO ScalaDataType should mirror Datatype with its union type structure
-// so that we keep the information about references. This is important,
-// because a reference in a parameter declaration should generate the type
-// of the referenced field, whereas a reference in a field declaration needs
-// to generate a type with a subset of the fields of the referenced resource.
-class ScalaDataType(dataType: Datatype, format: Option[Format]) extends Source {
-  import Datatype._
-  import Format._
-  def name: String = dataType match {
-    case String => format.map {
-      case Uuid => "UUID"
-      case DateTime => "DateTime"
-    }.getOrElse {
-      "String"
-    }
-    case Integer => "Int"
-    case Long => "Long"
-    case Boolean => "Boolean"
-    case Decimal => "BigDecimal"
-    case List(_, dataType) =>
-      val sdt = new ScalaDataType(dataType, format)
-      s"List[${sdt.name}]"
-    case UserType(name) => underscoreToInitCap(name)
-    case r: Reference =>
-      singular(underscoreToInitCap(r.resourceName))
+sealed abstract class ScalaDataType(dataType: Datatype) extends Source {
+  def name: String
+
+  override def src = name
+}
+
+object ScalaDataType {
+
+  abstract class Basic(override val name: String, dataType: Datatype)
+  extends ScalaDataType(dataType) {
+    override def src = name
   }
 
-  override val src: String = dataType.name
+  abstract class Formatted(name: String,
+                           val format: Format,
+                           dataType: Datatype)
+  extends Basic(name, dataType)
+
+  case object String extends Basic("String", Datatype.String)
+  case object Int extends Basic("Int", Datatype.Integer)
+  case object Long extends Basic("Long", Datatype.Long)
+  case object Boolean extends Basic("Boolean", Datatype.Boolean)
+  case object BigDecimal extends Basic("BigDecimal", Datatype.Decimal)
+
+  case object Uuid extends Formatted("UUID",
+                                     Format.Uuid,
+                                     Datatype.String)
+
+  case object DateTime extends Formatted("DateTime",
+                                         Format.DateTime,
+                                         Datatype.String)
+
+  class List(dataType: Datatype.List,
+             val valueType: ScalaDataType)
+  extends Basic(s"List[${valueType.name}]", dataType)
+
+  class UserType(dataType: Datatype.UserType) extends ScalaDataType(dataType) {
+    override def name: String = underscoreToInitCap(dataType.name)
+  }
+
+  class Reference(dataType: Datatype.Reference) extends ScalaDataType(dataType) {
+    override def name: String = resource.name
+
+    def resource = new ScalaResource(
+      resource  = dataType.underlying.resource,
+      includedFields = Set(dataType.underlying.fieldName)
+    )
+
+    def field = new ScalaField(dataType.underlying.field)
+  }
+
+  def apply(dataType: Datatype, format: Option[Format]): ScalaDataType = {
+    dataType match {
+      case Datatype.String => format.map {
+        case Format.Uuid => Uuid
+        case Format.DateTime => DateTime
+      }.getOrElse {
+        String
+      }
+      case Datatype.Integer => Int
+      case Datatype.Long => Long
+      case Datatype.Boolean => Boolean
+      case Datatype.Decimal => BigDecimal
+      case list: Datatype.List =>
+        new List(list, apply(list.valueType, format))
+      case ut: Datatype.UserType => new UserType(ut)
+      case r: Datatype.Reference => new Reference(r)
+    }
+  }
 }
