@@ -94,11 +94,13 @@ object Resource {
            }
 
            val responses = (json \ "responses") match {
-             case _: JsUndefined => Nil
              case JsObject(fields) => fields.map {
                case (code: String, JsString(typeName)) =>
                  new Response(code.toInt, Datatype(typeName))
+               case (name: String, value) =>
+                 sys.error(s"encountered illegal value for response code $name: $value")
              }
+             case _ => Nil
            }
 
            Operation(method = (json \ "method").as[String],
@@ -138,7 +140,12 @@ object Datatype {
 
   def apply(name: String): Datatype = arrayRegex.findFirstMatchIn(name).map {
     m =>
-      val valueType = apply(m.group(1))
+      val valueTypeName = m.group(1)
+      require(
+        !valueTypeName.matches(arrayRegex.toString),
+        "Nested lists are not supported."
+      )
+      val valueType = apply(valueTypeName)
       new List(name, valueType)
   }.getOrElse {
     name match {
@@ -231,7 +238,7 @@ object Field {
 
       case Datatype.String => ()
 
-      case _: Datatype.UserType =>
+      case _ @ Datatype.UserType(_) | Datatype.List(_, _) =>
         sys.error("Defaults not supported for user defined types.")
     }
   }

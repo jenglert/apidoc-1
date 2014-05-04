@@ -6,6 +6,14 @@ import com.fasterxml.jackson.databind.JsonMappingException
 
 case class ServiceDescriptionValidator(apiJson: String) {
 
+  // TODO validate all type names are legal.
+  // this includes types in
+  //  - fields
+  //  - operation argument lists
+  //  - responses
+  // Currently, illegal types are:
+  //  - nested lists
+
   private val RequiredFields = Seq("base_url", "name", "resources")
 
   private var parseError: Option[String] = None
@@ -129,10 +137,13 @@ case class ServiceDescriptionValidator(apiJson: String) {
       val invalidResponses = resource.operations.flatMap { op =>
         op.responses.collect {
           case response if NoContent(response.code) =>
-            s"${resource.name} ${op.method}${path(op)} contains response code ${response.code}, but ${response.code} should not have a body."
+            Some(s"${resource.name} ${op.method}${path(op)} contains response code ${response.code}, but ${response.code} should not have a body.")
+          case _ @ Response(_, Datatype.UserType(_)) | Response(_, Datatype.List(_, Datatype.UserType(_))) => None // OK
+          case _ =>
+            Some(s"${resource.name} ${op.method}${path(op)} has invalid type. Must be either a resource or list of resources.")
         }
       }
-      emptyResponses ++ invalidResponses
+      emptyResponses ++ invalidResponses.flatten
     }
   }
 

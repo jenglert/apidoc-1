@@ -172,18 +172,19 @@ case class RubyGemGenerator(service: ServiceDescription) {
 
       val responseBuilder = new StringBuilder()
       // TODO: match on all response codes
-      op.responses.headOption.map { response =>
-        response.resource match {
-          case None => {
-            responseBuilder.append("\n        nil")
-          }
-
-          case Some(resourceName: String) => {
-            if (op.responses.head.multiple) {
-              responseBuilder.append(".map")
-            }
+      op.responses.headOption.foreach { response =>
+        val resourceNameOpt = response.dataType match {
+          case Datatype.List(name, Datatype.UserType(resourceName)) =>
+            responseBuilder.append(".map")
+            Some(resourceName)
+          case Datatype.UserType(resourceName) =>
+            Some(resourceName)
+          case _ => None
+        }
+        resourceNameOpt match {
+          case Some(resourceName) =>
             responseBuilder.append(s" { |hash| ${moduleName}::Resources::${Text.underscoreToInitCap(resourceName)}.new(hash) }")
-          }
+          case None => responseBuilder.append("\n        nil")
         }
       }
 
