@@ -56,6 +56,10 @@ lazy val commonPlaySettings: Seq[Setting[_]] = Seq(
 lazy val commonSettings: Seq[Setting[_]] = Seq(
   name <<= name("apidoc-" + _),
   testOptions in Test += Tests.Argument("-oDF"),
+  scalacOptions ++= Seq(
+    "-feature",
+    "-language:postfixOps"
+  ),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "2.1.5" % "test"
   )
