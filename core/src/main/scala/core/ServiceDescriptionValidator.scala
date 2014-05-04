@@ -130,10 +130,6 @@ case class ServiceDescriptionValidator(apiJson: String) {
         case None => ""
         case Some(p: String) => s" $p"
       }
-      val emptyResponses = resource.operations.collect {
-        case op if op.responses.isEmpty =>
-          s"${resource.name} ${op.method}${path(op)} missing responses element"
-      }
       val invalidResponses = resource.operations.flatMap { op =>
         op.responses.collect {
           case response if NoContent(response.code) =>
@@ -143,7 +139,7 @@ case class ServiceDescriptionValidator(apiJson: String) {
             Some(s"${resource.name} ${op.method}${path(op)} has invalid type. Must be either a resource or list of resources.")
         }
       }
-      emptyResponses ++ invalidResponses.flatten
+      invalidResponses.flatten
     }
   }
 

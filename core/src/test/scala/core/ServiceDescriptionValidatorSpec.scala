@@ -107,7 +107,7 @@ class ServiceDescriptionValidatorSpec extends FunSpec with Matchers {
     validator.isValid should be(false)
   }
 
-  it("operations must have at least one response") {
+  it("operations may omit the responses field") {
     val json = """
     {
       "base_url": "http://localhost:9000",
@@ -131,8 +131,8 @@ class ServiceDescriptionValidatorSpec extends FunSpec with Matchers {
     }
     """
     val validator = ServiceDescriptionValidator(json)
-    validator.errors.mkString(", ") should be("users GET /:guid missing responses element")
-    validator.isValid should be(false)
+    validator.errors.mkString(", ") should be("")
+    validator.isValid should be(true)
   }
 
   it("operations w/ a valid response validates correct") {
@@ -152,9 +152,9 @@ class ServiceDescriptionValidatorSpec extends FunSpec with Matchers {
               "parameters": [
                 { "name": "guid", "type": "string" }
               ],
-              "responses": [
-                { "code": 200, "result": "vendor" }
-              ]
+              "responses": {
+                "200": "vendor"
+              }
             }
           ]
         }
