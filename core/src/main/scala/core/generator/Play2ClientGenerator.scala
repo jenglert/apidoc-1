@@ -22,6 +22,9 @@ extends Source
   override def src: String = {
     s"""package $packageName
 
+import java.net.URL
+import java.util.UUID
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
@@ -33,7 +36,6 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.Logger
 
-import java.util.UUID
 import org.joda.time.DateTime
 
 object Client {
@@ -128,12 +130,18 @@ object GlobalJson {
       JsString(iso8601.print(value))
     }
   }
+
+  implicit val jsonURLReads: Reads[URL] = {
+    __.read[String].map(new URL(_))
+  }
 }
 import GlobalJson._
 
-trait Model
+trait Model {
+  def _self: Option[URL]
+}
 
-trait PartialModel[T]
+trait PartialModel[T] extends Model
 """
     }
     val resourceDefs = resources.map(_.src).mkString("\n")
@@ -264,15 +272,21 @@ ${body.indent}
 
   def generateModelClass(name: String, fields: Seq[ScalaField], superClass: String): String = {
 
-    def argList = fields.map { field =>
-      val typeName = field match {
-        case field if field.isUserType =>
-          s"$packageName.$name.${field.name.capitalize}"
-        case field =>
-          field.dataType.name
+    def argList = {
+      val injected = Seq(
+        "_self: Option[URL]"
+      )
+      val generated = fields.map { field =>
+        val typeName = field match {
+          case field if field.isUserType =>
+            s"$packageName.$name.${field.name.capitalize}"
+          case field =>
+            field.dataType.name
+        }
+        s"${field.name}: " + (if (field.isOption) s"Option[$typeName] = None" else typeName)
       }
-      s"${field.name}: " + (if (field.isOption) s"Option[$typeName] = None" else typeName)
-    }.mkString("\n", ",\n", "\n").indent
+      (injected ++ generated).mkString("\n", ",\n", "\n").indent
+    }
 
     def companionBody: String = {
       def typeRefDefs: String = {
@@ -302,7 +316,10 @@ ${typeRefDefs.indent}
 
     def jsonReads: String = {
       def readFields = {
-        fields.map { field =>
+        val injected = Seq(
+          """_self = (json \ "_self").asOpt[URL]"""
+        )
+        val generated = fields.map { field =>
           val typeName = field.dataType match {
             case ut: ScalaDataType.UserType => field.name.capitalize
             case dt => dt.name
@@ -312,7 +329,8 @@ ${typeRefDefs.indent}
           } else {
             s"""${field.name} = (json \\ "${field.originalName}").as[${typeName}]"""
           }
-        }.mkString(",\n")
+        }
+        (injected ++ generated).mkString(",\n")
       }
 s"""
 new Reads[${name}] {
