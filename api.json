@@ -57,7 +57,7 @@
                     ],
                     "responses": {
                         "201": "vendor",
-                        "409": "validation_error"
+                        "409": "validation"
                     }
                 },
 
@@ -183,7 +183,7 @@
                 {
                     "method": "POST",
                     "parameters": [
-                        { "name": "vendor_guid", "type": "string" },
+                        { "name": "vendor_guid", "references": "vendors.guid" },
                         { "name": "code", "type": "string" },
                         { "name": "description", "type": "string", "required": false }
                     ],
@@ -235,9 +235,9 @@
                 {
                     "method": "POST",
                     "parameters": [
-                        { "name": "purchasing_vendor_guid", "type": "string" },
-                        { "name": "fulfilling_vendor_guid", "type": "string" },
-                        { "name": "term_guid", "type": "string" },
+                        { "name": "purchasing_vendor_guid", "references": "vendors.guid" },
+                        { "name": "fulfilling_vendor_guid", "references": "vendors.guid" },
+                        { "name": "term_guid", "references": "terms.guid" },
                         { "name": "begin_datetime", "type": "string", "format": "date-time-iso8601" },
                         { "name": "end_datetime", "type": "string", "format": "date-time-iso8601", "required": false },
                         { "name": "currency", "type": "string", "description": "3-character upper case iso4217 code for this currency", "example": "USD or EUR" }
