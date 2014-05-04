@@ -295,7 +295,6 @@ ${body.indent}
             val dataType = field.dataType.asInstanceOf[ScalaDataType.UserType]
             val isPartial = dataType.fields.size != dataType.resource.fields.size
             if (isPartial) {
-              // TODO generate new type
               generateModelClass(
                 name = field.name.capitalize,
                 fields = dataType.fields,
