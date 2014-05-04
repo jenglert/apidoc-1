@@ -114,10 +114,8 @@ class ScalaDataType(dataType: Datatype, format: Option[Format]) extends Source {
       val sdt = new ScalaDataType(dataType, format)
       "List[${sdt.name}]"
     case UserType(name) => underscoreToInitCap(name)
-    case Reference(_, reference) =>
-      // TODO select fields based off the reference
-      // content
-      singular(underscoreToInitCap(reference.resource))
+    case r: Reference =>
+      singular(underscoreToInitCap(r.resourceName))
   }
 
   override val src: String = dataType.name

@@ -90,9 +90,9 @@ case class ServiceDescriptionValidator(apiJson: String) {
     serviceDescription.get.resources.flatMap { resource =>
       resource.fields.flatMap { field =>
         field.references.flatMap { ref =>
-          serviceDescription.get.resources.find { r => r.name == ref.resource } match {
+          serviceDescription.get.resources.find { r => r.name == ref.resourceName } match {
 
-            case None => Some(s"Resource ${resource.name} field ${field.name} reference ${ref.label} points to a non existent resource (${ref.resource})")
+            case None => Some(s"Resource ${resource.name} field ${field.name} reference ${ref.label} points to a non existent resource (${ref.resourceName})")
 
             case Some(r: Resource) => {
               r.fields.find(f => f.name == ref.field ) match {

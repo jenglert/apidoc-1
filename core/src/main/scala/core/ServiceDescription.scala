@@ -19,7 +19,7 @@ case class ServiceDescription(json: JsValue) {
   lazy val resources: Seq[Resource] = {
     (json \ "resources").as[JsObject].fields.map { v =>
       v match {
-        case(key, value) => Resource.parse(key, value.as[JsObject])
+        case(key, value) => Resource.parse(key, value.as[JsObject], resources)
       }
     }
   }
@@ -55,17 +55,23 @@ case class Field(name: String,
                  minimum: Option[Long] = None,
                  maximum: Option[Long] = None)
 
-case class Reference(resource: String, field: String) {
+case class Reference(resourceName: String,
+                     field: String,
+                     // call-by-name to support circularity
+                     resourceFunc: () => Resource) {
 
-  lazy val label = s"$resource.$field"
+  lazy val label = s"$resourceName.$field"
 
+  lazy val resource = resourceFunc()
 }
 
 case class Response(code: Int, dataType: Datatype)
 
 object Resource {
 
-  def parse(name: String, value: JsObject): Resource = {
+  def parse(name: String, value: JsObject,
+    // call-by-name to support circular references
+    resources: => Seq[Resource]): Resource = {
      val path = (value \ "path").asOpt[String].getOrElse( s"/${name}" )
      val description = (value \ "description").asOpt[String]
 
@@ -74,7 +80,7 @@ object Resource {
        case None => Seq.empty
 
        case Some(a: JsArray) => {
-         a.value.map { json => Field(json.as[JsObject]) }
+         a.value.map { json => Field(json.as[JsObject], resources) }
        }
 
      }
@@ -89,7 +95,7 @@ object Resource {
            val parameters = (json \ "parameters").asOpt[JsArray] match {
              case None => Seq.empty
              case Some(a: JsArray) => {
-               a.value.map { data => Field(data.as[JsObject]) }
+               a.value.map { data => Field(data.as[JsObject], resources) }
              }
            }
 
@@ -133,7 +139,9 @@ object Datatype {
   case object Decimal extends Datatype("decimal")
   case class List(override val name: String, valueType: Datatype) extends Datatype(name)
   case class UserType (override val name: String) extends Datatype(name)
-  case class Reference(override val name: String, underlying: core.Reference) extends Datatype(name)
+  class Reference(underlying: core.Reference) extends Datatype(s"partial[${underlying.resourceName}") {
+    def resourceName = underlying.resourceName
+  }
 
   val All = Seq(String, Integer, Long, Boolean, Decimal)
 
@@ -186,11 +194,13 @@ object Format {
 
 object Field {
 
-  def apply(json: JsObject): Field = {
+  def apply(json: JsObject,
+    // call-by-name to support circular references
+    resources: => Seq[Resource]): Field = {
     println(json)
-    val reference = (json \ "references").asOpt[String].map { Reference(_) }
+    val reference = (json \ "references").asOpt[String].map { Reference(_, resources) }
     val datatype = reference.map { r =>
-      new Datatype.Reference(r.resource + "." + r.field, r)
+      new Datatype.Reference(r)
     }.getOrElse {
       val datatypeName = (json \ "type").as[String]
       Datatype(datatypeName)
@@ -245,8 +255,12 @@ object Field {
 
       case Datatype.String => ()
 
-      case _ @ Datatype.UserType(_) | Datatype.List(_, _) | Datatype.Reference(_, _) =>
-        sys.error("Defaults not supported for user defined types, lists, or references.")
+      case _: Datatype.Reference =>
+        sys.error("Defaults not supported for references.")
+      case Datatype.UserType(_) =>
+        sys.error("Defaults not supported for user defined types.")
+      case Datatype.List(_, _) =>
+        sys.error("Defaults not supported for user defined lists.")
     }
   }
 
@@ -254,11 +268,19 @@ object Field {
 
 object Reference {
 
-  def apply(value: String): Reference = {
+  def apply(value: String,
+    // call-by-name to support circular references
+    resources: => Seq[Resource]): Reference = {
     val parts = value.split("\\.")
     require(parts.length == 2,
             s"Invalid reference[${value}]. Expected <resource name>.<field name>")
-    Reference(parts.head, parts.last)
+    val resourceName = parts.head
+    val field = parts.last
+    new Reference(
+      resourceName = resourceName,
+      field = field,
+      resourceFunc = () => resources.find(_.name == resourceName).get
+    )
   }
 
 }
