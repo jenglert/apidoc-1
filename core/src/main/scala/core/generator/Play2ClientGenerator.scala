@@ -243,6 +243,17 @@ ${cases.indent}
       methodCall + responseProcessing
     }
 
+    def argList: String = {
+      parameters.map {
+        // for reference use the type of the field being pointed at
+        case param if param.isReference =>
+          val realType = param.dataType.asInstanceOf[ScalaDataType.Reference].field.dataType
+          val typeName = if (param.isOption) s"Option[${realType.name}] = None" else realType.name
+          s"${param.name}: $typeName"
+        case param => param.src
+      }.mkString("\n", ",\n", "\n").indent
+    }
+
     override def src: String = s"""
 ${description}def $name[T]($argList)($handlerList)(implicit ec: ExecutionContext): Future[T] = {
 ${body.indent}

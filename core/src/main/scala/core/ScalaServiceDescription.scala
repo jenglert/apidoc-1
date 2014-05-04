@@ -7,24 +7,6 @@ object ScalaUtil {
     val lines = text.split("\n")
     lines.mkString("/**\n * ", "\n * ", "\n */\n")
   }
-
-  // TODO we need to separate the concept of field and parameter,
-  // since they have different semantics. otherwise, we are going
-  // to end up with more nasty methods like this
-  def fieldsToArgList(fields: Seq[ScalaField], isParams: Boolean) = {
-    val srcs = if (isParams) {
-      fields.map {
-        case field if field.isReference =>
-          val realType = field.dataType.asInstanceOf[ScalaDataType.Reference].field.dataType
-          val typeName = if (field.isOption) s"Option[${realType.name}] = None" else realType.name
-          s"${field.name}: $typeName"
-        case field => field.src
-      }
-    } else {
-      fields.map(_.src)
-    }
-    srcs.mkString("\n", ",\n", "\n").indent
-  }
 }
 
 import ScalaUtil._
@@ -50,8 +32,6 @@ class ScalaResource(resource: Resource)
 
   def fields = resource.fields.map(new ScalaField(_)).sorted
 
-  def argList = fieldsToArgList(fields, isParams = false)
-
   def operations = resource.operations.map { operation =>
     new ScalaOperation(operation)
   }
@@ -70,8 +50,6 @@ class ScalaOperation(operation: Operation)
   def name = method.toLowerCase + path.map(safeName).getOrElse("").capitalize
 
   def responseTypeName = name.capitalize
-
-  def argList = fieldsToArgList(parameters, isParams = true)
 
   def responses = operation.responses.map(new ScalaResponse(_))
 }
