@@ -15,12 +15,6 @@
 
   <p>
     HTTP @response.code:
-    @defining(response.dataType match {
-      case core.Datatype.UserType(name) => resource.toString
-      case core.Datatype.List(_, core.Datatype.UserType(name)) => s"List[$resource]"
-      case _ => "Illegal"
-    }) { typeName =>
-      @typeName
-    }
+    @response.dataType.name
   </p>
 }

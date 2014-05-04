@@ -133,6 +133,7 @@ object Datatype {
   case object Decimal extends Datatype("decimal")
   case class List(override val name: String, valueType: Datatype) extends Datatype(name)
   case class UserType (override val name: String) extends Datatype(name)
+  case class Reference(override val name: String, underlying: core.Reference) extends Datatype(name)
 
   val All = Seq(String, Integer, Long, Boolean, Decimal)
 
@@ -186,8 +187,14 @@ object Format {
 object Field {
 
   def apply(json: JsObject): Field = {
-    val datatypeName = (json \ "type").as[String]
-    val datatype = Datatype(datatypeName)
+    println(json)
+    val reference = (json \ "references").asOpt[String].map { Reference(_) }
+    val datatype = reference.map { r =>
+      new Datatype.Reference(r.resource + "." + r.field, r)
+    }.getOrElse {
+      val datatypeName = (json \ "type").as[String]
+      Datatype(datatypeName)
+    }
 
     val default = asOptString(json, "default")
     default.map { v => assertValidDefault(datatype, v) }
@@ -195,7 +202,7 @@ object Field {
     Field(name = (json \ "name").as[String],
           dataType = datatype,
           description = (json \ "description").asOpt[String],
-          references = (json \ "references").asOpt[String].map { Reference(_) },
+          references = reference,
           required = (json \ "required").asOpt[Boolean].getOrElse(true),
           multiple = (json \ "multiple").asOpt[Boolean].getOrElse(false),
           default = default,
@@ -238,8 +245,8 @@ object Field {
 
       case Datatype.String => ()
 
-      case _ @ Datatype.UserType(_) | Datatype.List(_, _) =>
-        sys.error("Defaults not supported for user defined types.")
+      case _ @ Datatype.UserType(_) | Datatype.List(_, _) | Datatype.Reference(_, _) =>
+        sys.error("Defaults not supported for user defined types, lists, or references.")
     }
   }
 
