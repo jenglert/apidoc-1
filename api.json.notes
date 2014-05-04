@@ -1,0 +1,3 @@
+path parameters optional - assuming string unless specified
+responses is optional now - default to 204 no content
+

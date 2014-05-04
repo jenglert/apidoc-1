@@ -17,24 +17,24 @@ import ScalaUtil._
 
 class ScalaServiceDescription(serviceDescription: ServiceDescription)
 {
-  val name = safeName(serviceDescription.name)
+  def name = safeName(serviceDescription.name)
 
-  val description = serviceDescription.description.map(textToComment).getOrElse("")
+  def description = serviceDescription.description.map(textToComment).getOrElse("")
 
-  val resources = serviceDescription.resources.map { resource =>
+  def resources = serviceDescription.resources.map { resource =>
     new ScalaResource(resource, Set.empty)
   }
 }
 
 class ScalaResource(resource: Resource, includedFields: Set[String])
 {
-  val name = singular(underscoreToInitCap(resource.name))
+  def name = singular(underscoreToInitCap(resource.name))
 
-  val path = resource.path
+  def path = resource.path
 
-  val description = resource.description.map(textToComment).getOrElse("")
+  def description = resource.description.map(textToComment).getOrElse("")
 
-  val fields = {
+  def fields = {
     val included: Seq[Field] = if (includedFields.isEmpty) {
       resource.fields
     } else {
@@ -45,26 +45,30 @@ class ScalaResource(resource: Resource, includedFields: Set[String])
     }
   }.sorted
 
-  val argList = fieldsToArgList(fields)
+  def argList = fieldsToArgList(fields)
 
-  val operations = resource.operations.map { operation =>
+  def operations = resource.operations.map { operation =>
     new ScalaOperation(operation)
   }
 }
 
 class ScalaOperation(operation: Operation)
 {
-  val method = operation.method
+  def method = operation.method
 
-  val path = operation.path
+  def path = operation.path
 
-  val description = operation.description.map(textToComment).getOrElse("")
+  def description = operation.description.map(textToComment).getOrElse("")
 
-  val parameters = operation.parameters.map { new ScalaField(_) }.sorted
+  def parameters = operation.parameters.map { new ScalaField(_) }.sorted
 
-  val name = method.toLowerCase + path.map(safeName).getOrElse("").capitalize
+  def name = method.toLowerCase + path.map(safeName).getOrElse("").capitalize
 
-  val argList = fieldsToArgList(parameters)
+  def responseTypeName = name.capitalize
+
+  def argList = fieldsToArgList(parameters)
+
+  def responses = operation.responses.map(new ScalaResponse(_))
 }
 
 class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
@@ -103,6 +107,12 @@ class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
   }
 }
 
+case class ScalaResponse(response: Response) {
+  def code = response.code
+
+  def dataType = new ScalaDataType(response.dataType, None)
+}
+
 // TODO ScalaDataType should mirror Datatype with its union type structure
 // so that we keep the information about references. This is important,
 // because a reference in a parameter declaration should generate the type
@@ -111,7 +121,7 @@ class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
 class ScalaDataType(dataType: Datatype, format: Option[Format]) extends Source {
   import Datatype._
   import Format._
-  val name = dataType match {
+  def name: String = dataType match {
     case String => format.map {
       case Uuid => "UUID"
       case DateTime => "DateTime"
@@ -124,7 +134,7 @@ class ScalaDataType(dataType: Datatype, format: Option[Format]) extends Source {
     case Decimal => "BigDecimal"
     case List(_, dataType) =>
       val sdt = new ScalaDataType(dataType, format)
-      "List[${sdt.name}]"
+      s"List[${sdt.name}]"
     case UserType(name) => underscoreToInitCap(name)
     case r: Reference =>
       singular(underscoreToInitCap(r.resourceName))

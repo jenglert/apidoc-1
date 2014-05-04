@@ -29,7 +29,7 @@ object ${ssd.name} {
 
   import com.ning.http.client.Realm.AuthScheme
 
-  import play.api.libs.ws._
+  import play.api.libs.ws.{Response => PlayResponse, _}
   import play.api.libs.ws.WS.WSRequestHolder
   import play.api.libs.json._
   import play.api.libs.functional.syntax._
@@ -72,32 +72,35 @@ object ${ssd.name} {
       req
     }
 
-    // TODO return a Future[Response] instead of a Future[JsValue] so the code
-    // generated for the operation can decide what to do with it
-
-    private def processResponse(f: Future[Response])(implicit ec: ExecutionContext): Future[JsValue] = {
+    private def processResponse(f: Future[PlayResponse])(implicit ec: ExecutionContext): Future[PlayResponse] = {
       f.map { response =>
         logger.debug(response.body)
-        response.json
+        response
       }
     }
 
-    protected def POST[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
+    protected def POST[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[PlayResponse] = {
       processResponse(logRequest("POST", requestHolder(path)).post(data))
     }
 
-    protected def GET(path: String, q: Seq[(String, String)])(implicit ec: ExecutionContext): Future[JsValue] = {
+    protected def GET(path: String, q: Seq[(String, String)])(implicit ec: ExecutionContext): Future[PlayResponse] = {
       processResponse(logRequest("GET", requestHolder(path).withQueryString(q:_*)).get())
     }
 
-    protected def PUT[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
+    protected def PATCH[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[PlayResponse] = {
+      throw new UnsupportedOperationException // TODO support PATCH
+    }
+
+    protected def PUT[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[PlayResponse] = {
       processResponse(logRequest("PUT", requestHolder(path)).put(data))
     }
 
-    protected def DELETE[T](path: String)(implicit ec: ExecutionContext): Future[JsValue] = {
+    protected def DELETE[T](path: String)(implicit ec: ExecutionContext): Future[PlayResponse] = {
       processResponse(logRequest("DELETE", requestHolder(path)).delete())
     }
   }
+
+  case class Response[T](status: Int, entity: T)
 $body
 }"""
   }
@@ -167,30 +170,54 @@ $objArgs
       builder.result.mkString("\n")
     }
 
-    // TODO generate resposne types based on the responses list on the operation
-
-    def body = method match {
-      case "POST" => s"""$buildPayload
+    def body = {
+      def methodCall = method.toUpperCase match {
+        case "POST" => s"""$buildPayload
 POST(
   path = $pathArg,
   payload
 )"""
-      case "GET" => s"""$buildGetArgs
+
+        case "GET" => s"""$buildGetArgs
 GET(
   path = $pathArg,
   qBuilder.result
 )"""
-      case "PATCH" => "throw new UnsupportedOperationException // TODO support PATCH"
-      case "PUT" => s"""$buildPayload
+
+        case "PATCH" => s"""$buildPayload
+PATCH(
+  path = $pathArg,
+  payload
+)"""
+
+        case "PUT" => s"""$buildPayload
 PUT(
   path = $pathArg,
   payload
 )"""
-      case "DELETE" => s"""DELETE($pathArg)"""
+        case "DELETE" => s"""DELETE($pathArg)"""
+      }
+
+      def responses = operation.responses.sortBy(_.code)
+
+      def responseProcessing: String = {
+        def cases: String = responses.map { response =>
+          val status = response.code
+          val typeName = response.dataType.name
+          s"case r if r.status == ${status} => Response(r.status, r.json.as[$typeName])"
+        }.mkString("\n")
+        s""".map {
+${cases}
+  case r if r.status == 204 => Response(204, ()) // 204 has no body
+  case r if r.status == 304 => Response(304, ()) // 304 has no body
+  case r => Response(r.status, r.body)
+}"""
+      }
+      methodCall + responseProcessing
     }
 
     override def src: String = s"""
-${description}def $name($argList)(implicit ec: ExecutionContext) = {
+${description}def $name($argList)(implicit ec: ExecutionContext): Future[Response[_]] = {
 ${body.indent}
 }
 """
