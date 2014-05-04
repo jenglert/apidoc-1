@@ -29,7 +29,7 @@ object ${ssd.name} {
 
   import com.ning.http.client.Realm.AuthScheme
 
-  import play.api.libs.ws.{Response => PlayResponse, _}
+  import play.api.libs.ws._
   import play.api.libs.ws.WS.WSRequestHolder
   import play.api.libs.json._
   import play.api.libs.functional.syntax._
@@ -72,35 +72,35 @@ object ${ssd.name} {
       req
     }
 
-    private def processResponse(f: Future[PlayResponse])(implicit ec: ExecutionContext): Future[PlayResponse] = {
+    private def processResponse(f: Future[Response])(implicit ec: ExecutionContext): Future[Response] = {
       f.map { response =>
         logger.debug(response.body)
         response
       }
     }
 
-    protected def POST[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[PlayResponse] = {
+    protected def POST[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
       processResponse(logRequest("POST", requestHolder(path)).post(data))
     }
 
-    protected def GET(path: String, q: Seq[(String, String)])(implicit ec: ExecutionContext): Future[PlayResponse] = {
+    protected def GET(path: String, q: Seq[(String, String)])(implicit ec: ExecutionContext): Future[Response] = {
       processResponse(logRequest("GET", requestHolder(path).withQueryString(q:_*)).get())
     }
 
-    protected def PATCH[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[PlayResponse] = {
+    protected def PATCH[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
       throw new UnsupportedOperationException // TODO support PATCH
     }
 
-    protected def PUT[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[PlayResponse] = {
+    protected def PUT[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
       processResponse(logRequest("PUT", requestHolder(path)).put(data))
     }
 
-    protected def DELETE[T](path: String)(implicit ec: ExecutionContext): Future[PlayResponse] = {
+    protected def DELETE[T](path: String)(implicit ec: ExecutionContext): Future[Response] = {
       processResponse(logRequest("DELETE", requestHolder(path)).delete())
     }
-  }
 
-  case class Response[T](status: Int, entity: T)
+    case class HandlerNotSpecified(msg: String) extends RuntimeException(msg)
+  }
 $body
 }"""
   }
@@ -170,27 +170,48 @@ $objArgs
       builder.result.mkString("\n")
     }
 
+    def handlerList: String = {
+      val generated = responses.map { response =>
+        val code = response.code
+        val typeName = response.dataType.name
+        s"""status${code}: ${typeName} => T = { result: ${typeName} =>
+  val json = Json.prettyPrint(Json.toJson(result))
+  throw new HandlerNotSpecified(s"unhandled response code $code with body: $${json}")
+}"""
+      }
+      val defaults = Seq(
+        """status204: Unit => T = { _: Unit => throw new HandlerNotSpecified("unhandled resposne code 204") }""",
+        """status304: Unit => T = { _: Unit => throw new HandlerNotSpecified("unhandled resposne code 304") }""",
+        """default: Response => T = { r: Response => throw new HandlerNotSpecified(s"unexpected response code ${r.status} with body ${r.body}") }"""
+      )
+      (generated ++ defaults).sorted.mkString("\n", ",\n", "\n").indent
+    }
+
     def body = {
       def methodCall = method.toUpperCase match {
-        case "POST" => s"""$buildPayload
+        case "POST" => s"""
+$buildPayload
 POST(
   path = $pathArg,
   payload
 )"""
 
-        case "GET" => s"""$buildGetArgs
+        case "GET" => s"""
+$buildGetArgs
 GET(
   path = $pathArg,
   qBuilder.result
 )"""
 
-        case "PATCH" => s"""$buildPayload
+        case "PATCH" => s"""
+$buildPayload
 PATCH(
   path = $pathArg,
   payload
 )"""
 
-        case "PUT" => s"""$buildPayload
+        case "PUT" => s"""
+$buildPayload
 PUT(
   path = $pathArg,
   payload
@@ -204,20 +225,21 @@ PUT(
         def cases: String = responses.map { response =>
           val status = response.code
           val typeName = response.dataType.name
-          s"case r if r.status == ${status} => Response(r.status, r.json.as[$typeName])"
+          s"""case r if r.status == ${status} =>
+  status${status}(r.json.as[$typeName])"""
         }.mkString("\n")
         s""".map {
 ${cases.indent}
-  case r if r.status == 204 => Response(204, ()) // 204 has no body
-  case r if r.status == 304 => Response(304, ()) // 304 has no body
-  case r => Response(r.status, r.body)
+  case r if r.status == 204 => status204(())
+  case r if r.status == 304 => status304(())
+  case r => default(r)
 }"""
       }
       methodCall + responseProcessing
     }
 
     override def src: String = s"""
-${description}def $name($argList)(implicit ec: ExecutionContext): Future[Response[_]] = {
+${description}def $name[T]($argList)($handlerList)(implicit ec: ExecutionContext): Future[T] = {
 ${body.indent}
 }
 """

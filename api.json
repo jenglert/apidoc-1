@@ -33,9 +33,9 @@
                         { "name": "limit", "type": "integer", "default": 50, "description": "The number of records to return", "minimum": 0, "maximum": 50 },
                         { "name": "offset", "type": "integer", "default": 0, "description": "Used to paginate. First page of results is 0.", "minimum": 0 }
                     ],
-                    "responses": {
-                        "200": "[vendor]"
-                    }
+                    "responses": [
+                      { "code": 200, "result": "[vendor]" }
+                    ]
                 },
 
                 {
@@ -45,9 +45,9 @@
                     "parameters": [
                         { "name": "guid", "type": "string" }
                     ],
-                    "responses": {
-                        "200": "vendor"
-                    }
+                    "responses": [
+                      { "code": 200, "result": "vendor" }
+                    ]
                 },
 
                 {
@@ -55,10 +55,10 @@
                     "parameters": [
                         { "name": "name", "type": "string" }
                     ],
-                    "responses": {
-                        "201": "vendor",
-                        "409": "validation"
-                    }
+                    "responses": [
+                      { "code": 201, "result": "vendor" },
+                      { "code": 409, "result": "validation" }
+                    ]
                 },
 
                 {
@@ -113,7 +113,7 @@
                     "parameters": [
                         { "name": "vendor_guid", "type": "string", "format": "uuid", "references": "vendors.guid" },
                         { "name": "number", "type": "string" },
-                        { "name": "quantity", "type": "long" }
+                        { "name": "quantity", "type": "long", "required": false, "default": 0 }
                     ],
                     "responses": [
                         { "code": 201, "result": "item" }
@@ -149,9 +149,6 @@
                     "path": "/:guid",
                     "parameters": [
                         { "name": "guid", "type": "string" }
-                    ],
-                    "responses": [
-                        { "code": 204 }
                     ]
                 }
             ]
@@ -177,7 +174,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["term"] }
+                        { "code": 200, "result": "[term]" }
                     ]
                 },
                 {
@@ -196,9 +193,6 @@
                     "path": "/:guid",
                     "parameters": [
                         { "name": "guid", "type": "string" }
-                    ],
-                    "responses": [
-                        { "code": 204 }
                     ]
                 }
             ]
@@ -229,7 +223,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["agreement"] }
+                        { "code": 200, "result": "[agreement]" }
                     ]
                 },
                 {
@@ -251,9 +245,6 @@
                     "path": "/:guid",
                     "parameters": [
                         { "name": "guid", "type": "string" }
-                    ],
-                    "responses": [
-                        { "code": 204 }
                     ]
                 }
             ]
@@ -280,7 +271,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["shipment_schedule"] }
+                        { "code": 200, "result": "[shipment_schedule]" }
                     ]
                 },
                 {
@@ -299,9 +290,6 @@
                     "path": "/:guid",
                     "parameters": [
                         { "name": "guid", "type": "string" }
-                    ],
-                    "responses": [
-                        { "code": 204 }
                     ]
                 }
             ]
@@ -324,7 +312,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["planned_shipment"] }
+                        { "code": 200, "result": "[planned_shipment]" }
                     ]
                 }
             ]
@@ -361,7 +349,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["purchase"] }
+                        { "code": 200, "result": "[purchase]" }
                     ]
                 },
                 {
@@ -431,7 +419,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["shipment_request"] }
+                        { "code": 200, "result": "[shipment_request]" }
                     ]
                 },
                 {
@@ -468,7 +456,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["shipment_request_item"] }
+                        { "code": 200, "result": "[shipment_request_item]" }
                     ]
                 }
             ]
@@ -491,7 +479,7 @@
                         { "name": "guid", "type": "string" }
                     ],
                     "responses": [
-                        { "code": 200, "result": ["receipt"] }
+                        { "code": 200, "result": "[receipt]" }
                     ]
                 },
                 {
@@ -511,9 +499,6 @@
                     "path": "/:guid",
                     "parameters": [
                         { "name": "guid", "type": "string" }
-                    ],
-                    "responses": [
-                        { "code": 204 }
                     ]
                 }
             ]

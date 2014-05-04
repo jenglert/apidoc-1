@@ -102,13 +102,14 @@ object Resource {
            }
 
            val responses = (json \ "responses") match {
-             case JsObject(fields) => fields.map {
-               case (code: String, JsString(typeName)) =>
-                 new Response(code.toInt, Datatype(typeName))
-               case (name: String, value) =>
-                 sys.error(s"encountered illegal value for response code $name: $value")
-             }
-             case _ => Nil
+            case JsArray(entries) =>
+              entries.map { entry =>
+                val code = (entry \ "code").as[Int]
+                val typeName = (entry \ "result").as[String]
+                new Response(code, Datatype(typeName))
+              }
+            case _: JsUndefined => Nil
+            case value => sys.error(s"encountered illegal value for resposne $value")
            }
 
            Operation(method = (json \ "method").as[String],

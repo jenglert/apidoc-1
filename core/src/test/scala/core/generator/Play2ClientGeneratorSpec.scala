@@ -1,6 +1,7 @@
-package core
+package core.generator
 
-import core.generator.Play2ClientGenerator
+import core.ServiceDescription
+import core.ScalaServiceDescription
 
 import java.io.File
 import java.io.PrintWriter
