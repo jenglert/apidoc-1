@@ -174,10 +174,10 @@ case class RubyGemGenerator(service: ServiceDescription) {
       // TODO: match on all response codes
       op.responses.headOption.foreach { response =>
         val resourceNameOpt = response.dataType match {
-          case Datatype.List(name, Datatype.UserType(resourceName)) =>
+          case Datatype.List(name, Datatype.UserType(resourceName, _, _)) =>
             responseBuilder.append(".map")
             Some(resourceName)
-          case Datatype.UserType(resourceName) =>
+          case Datatype.UserType(resourceName, _, _) =>
             Some(resourceName)
           case _ => None
         }

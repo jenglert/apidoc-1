@@ -134,7 +134,7 @@ case class ServiceDescriptionValidator(apiJson: String) {
         op.responses.collect {
           case response if NoContent(response.code) =>
             Some(s"${resource.name} ${op.method}${path(op)} contains response code ${response.code}, but ${response.code} should not have a body.")
-          case _ @ Response(_, Datatype.UserType(_)) | Response(_, Datatype.List(_, Datatype.UserType(_))) => None // OK
+          case _ @ Response(_, Datatype.UserType(_, _, _)) | Response(_, Datatype.List(_, Datatype.UserType(_, _, _))) => None // OK
           case _ =>
             Some(s"${resource.name} ${op.method}${path(op)} has invalid type. Must be either a resource or list of resources.")
         }

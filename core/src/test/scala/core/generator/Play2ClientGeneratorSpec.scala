@@ -17,7 +17,7 @@ class Play2ClientGeneratorSpec extends FlatSpec {
     val serviceDescription = ServiceDescription(json)
     val ssd = new ScalaServiceDescription(serviceDescription)
     val p2c = new Play2ClientGenerator(ssd)
-    val dir = new File("/web/iris-hub-client/app/irishub")
+    val dir = new File("/web/iris-hub-client/src/main/scala/irishub")
     dir.mkdirs
     val pw = new PrintWriter(new File(dir, "Client.scala"))
     try pw.println(p2c.src)

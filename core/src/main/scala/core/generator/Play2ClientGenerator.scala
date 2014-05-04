@@ -22,92 +22,91 @@ extends Source
   override def src: String = {
     s"""package $packageName
 
-object ${ssd.name} {
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
-  import scala.concurrent.ExecutionContext
-  import scala.concurrent.Future
+import com.ning.http.client.Realm.AuthScheme
 
-  import com.ning.http.client.Realm.AuthScheme
+import play.api.libs.ws._
+import play.api.libs.ws.WS.WSRequestHolder
+import play.api.libs.json._
+import play.api.libs.functional.syntax._
+import play.api.Logger
 
-  import play.api.libs.ws._
-  import play.api.libs.ws.WS.WSRequestHolder
-  import play.api.libs.json._
-  import play.api.libs.functional.syntax._
-  import play.api.Logger
+import java.util.UUID
+import org.joda.time.DateTime
 
-  import java.util.UUID
-  import org.joda.time.DateTime
+object Client {
+  private val apiToken = sys.props.getOrElse(
+    "$packageName.api.token",
+    sys.error("API token must be provided")
+  )
 
-  object Client {
-    private val apiToken = sys.props.getOrElse(
-      "$packageName.api.token",
-      sys.error("API token must be provided")
-    )
+  private val apiUrl = sys.props.getOrElse(
+    "$packageName.api.url",
+    sys.error("API URL must be provided")
+  )
 
-    private val apiUrl = sys.props.getOrElse(
-      "$packageName.api.url",
-      sys.error("API URL must be provided")
-    )
+  private val logger = Logger("$packageName.Client")
 
-    private val logger = Logger("$packageName.${ssd.name}.Client")
+  def requestHolder(resource: String) = {
+    val url = apiUrl + resource
+    WS.url(url).withAuth(apiToken, "", AuthScheme.BASIC)
+  }
+}
 
-    def requestHolder(resource: String) = {
-      val url = apiUrl + resource
-      WS.url(url).withAuth(apiToken, "", AuthScheme.BASIC)
+trait Client {
+  import Client._
+
+  def resource: String
+
+  protected def requestHolder(path: String) = Client.requestHolder(resource + path)
+
+  private def logRequest(method: String, req: WSRequestHolder)(implicit ec: ExecutionContext): WSRequestHolder = {
+    // auth should always be present, but just in case it isn't,
+    // we'll supply a default
+    val (apiToken, _, _) = req.auth.getOrElse(("", "", AuthScheme.BASIC))
+    logger.info(s"curl -X $$method -u '[REDACTED]:' $${req.url}")
+    req
+  }
+
+  private def processResponse(f: Future[Response])(implicit ec: ExecutionContext): Future[Response] = {
+    f.map { response =>
+      logger.debug(response.body)
+      response
     }
   }
 
-  trait Client {
-    import Client._
-
-    def resource: String
-
-    protected def requestHolder(path: String) = Client.requestHolder(resource + path)
-
-    private def logRequest(method: String, req: WSRequestHolder)(implicit ec: ExecutionContext): WSRequestHolder = {
-      // auth should always be present, but just in case it isn't,
-      // we'll supply a default
-      val (apiToken, _, _) = req.auth.getOrElse(("", "", AuthScheme.BASIC))
-      logger.info(s"curl -X $$method -u '[REDACTED]:' $${req.url}")
-      req
-    }
-
-    private def processResponse(f: Future[Response])(implicit ec: ExecutionContext): Future[Response] = {
-      f.map { response =>
-        logger.debug(response.body)
-        response
-      }
-    }
-
-    protected def POST[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
-      processResponse(logRequest("POST", requestHolder(path)).post(data))
-    }
-
-    protected def GET(path: String, q: Seq[(String, String)])(implicit ec: ExecutionContext): Future[Response] = {
-      processResponse(logRequest("GET", requestHolder(path).withQueryString(q:_*)).get())
-    }
-
-    protected def PATCH[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
-      throw new UnsupportedOperationException // TODO support PATCH
-    }
-
-    protected def PUT[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
-      processResponse(logRequest("PUT", requestHolder(path)).put(data))
-    }
-
-    protected def DELETE[T](path: String)(implicit ec: ExecutionContext): Future[Response] = {
-      processResponse(logRequest("DELETE", requestHolder(path)).delete())
-    }
-
-    case class HandlerNotSpecified(msg: String) extends RuntimeException(msg)
+  protected def POST[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
+    processResponse(logRequest("POST", requestHolder(path)).post(data))
   }
+
+  protected def GET(path: String, q: Seq[(String, String)])(implicit ec: ExecutionContext): Future[Response] = {
+    processResponse(logRequest("GET", requestHolder(path).withQueryString(q:_*)).get())
+  }
+
+  protected def PATCH[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
+    throw new UnsupportedOperationException // TODO support PATCH
+  }
+
+  protected def PUT[T](path: String, data: JsValue)(implicit ec: ExecutionContext): Future[Response] = {
+    processResponse(logRequest("PUT", requestHolder(path)).put(data))
+  }
+
+  protected def DELETE[T](path: String)(implicit ec: ExecutionContext): Future[Response] = {
+    processResponse(logRequest("DELETE", requestHolder(path)).delete())
+  }
+
+  case class HandlerNotSpecified(msg: String) extends RuntimeException(msg)
+}
 $body
-}"""
+"""
   }
 
   def body: String = {
     val jsonFormatDefs = {
       s"""
+object GlobalJson {
   implicit val jsonReadsUUID: Reads[UUID] = __.read[String].map(UUID.fromString)
 
   implicit val jsonWritesUUID = new Writes[UUID] {
@@ -129,9 +128,15 @@ $body
       JsString(iso8601.print(value))
     }
   }
+}
+import GlobalJson._
+
+trait Model
+
+trait PartialModel[T]
 """
     }
-    val resourceDefs = resources.map(_.src.indent).mkString("\n")
+    val resourceDefs = resources.map(_.src).mkString("\n")
     jsonFormatDefs ++ resourceDefs
   }
 
@@ -244,17 +249,103 @@ ${body.indent}
 }
 """
   }
+
+  def generateModelClass(name: String, fields: Seq[ScalaField], superClass: String): String = {
+
+    def argList = fields.map { field =>
+      val typeName = field match {
+        case field if field.isUserType =>
+          s"$packageName.$name.${field.name.capitalize}"
+        case field =>
+          field.dataType.name
+      }
+      s"${field.name}: " + (if (field.isOption) s"Option[$typeName] = None" else typeName)
+    }.mkString("\n", ",\n", "\n").indent
+
+    def companionBody: String = {
+      def typeRefDefs: String = {
+        fields.collect {
+          case field if field.isUserType  =>
+            val dataType = field.dataType.asInstanceOf[ScalaDataType.UserType]
+            val isPartial = dataType.fields.size != dataType.resource.fields.size
+            if (isPartial) {
+              // TODO generate new type
+              generateModelClass(
+                name = field.name.capitalize,
+                fields = dataType.fields,
+                superClass = s"$packageName.PartialModel[$packageName.${dataType.name}]")
+            } else {
+              s"type ${field.name.capitalize} = $packageName.${dataType.name}"
+            }
+        }.mkString("\n")
+      }
+s"""
+${typeRefDefs.indent}
+
+  implicit val reads: Reads[${name}] = ${jsonReads.indent(4)}
+
+  implicit val writes: Writes[${name}] = ${jsonWrites.indent(4)}
+"""
+    }
+
+    def jsonReads: String = {
+      def readFields = {
+        fields.map { field =>
+          val typeName = field.dataType match {
+            case ut: ScalaDataType.UserType => field.name.capitalize
+            case dt => dt.name
+          }
+          if (field.isOption) {
+            s"""${field.name} = (json \\ "${field.originalName}").asOpt[${typeName}]"""
+          } else {
+            s"""${field.name} = (json \\ "${field.originalName}").as[${typeName}]"""
+          }
+        }.mkString(",\n")
+      }
+s"""
+new Reads[${name}] {
+  def reads(json: JsValue) = JsSuccess {
+    new ${name}(
+${readFields.indent(6)}
+    )
+  }
+}
+"""
+    }
+
+    def jsonWrites: String = {
+      def writeFields = {
+        fields.map { field =>
+          s""""${field.originalName}" -> Json.toJson(value.${field.name})"""
+        }.mkString(",\n")
+      }
+s"""
+new Writes[${name}] {
+  def writes(value: ${name}) = {
+    Json.obj(
+${writeFields.indent(6)}
+    )
+  }
+}
+"""
+    }
+
+s"""
+object ${name} {
+$companionBody
+}
+
+case class $name($argList) extends $superClass
+"""
+  }
+
   case class Resource(resource: ScalaResource) extends Source {
     import resource._
 
     def operations: Seq[Source] = resource.operations.map(Operation(_))
 
     override def src: String = s"""
-object ${resource.name} {
-  $companionBody
-}
-
-case class $name($argList)
+${generateModelClass(resource.name, fields, "Model")}
 
 object ${resource.name}Client extends Client {
   def resource = "$path"
@@ -265,53 +356,6 @@ $clientBody
     def clientBody: String = {
       val methods = operations.map(_.src.indent).mkString("\n")
       methods
-    }
-
-    def companionBody: String = {
-s"""
-  implicit val reads: Reads[${resource.name}] = ${jsonReads.indent(4)}
-
-  implicit val writes: Writes[${resource.name}] = ${jsonWrites.indent(4)}
-"""
-    }
-
-    def jsonReads: String = {
-      def readFields = {
-        resource.fields.map { field =>
-          val typeName = field.dataType.name
-          if (field.isOption) {
-            s"""${field.name} = (json \\ "${field.originalName}").asOpt[${typeName}]"""
-          } else {
-            s"""${field.name} = (json \\ "${field.originalName}").as[${typeName}]"""
-          }
-        }.mkString(",\n")
-      }
-s"""
-new Reads[${resource.name}] {
-  def reads(json: JsValue) = JsSuccess {
-    new ${resource.name}(
-${readFields.indent(6)}
-    )
-  }
-}
-"""
-    }
-
-    def jsonWrites: String = {
-      def writeFields = {
-        resource.fields.map { field =>
-          s""""${field.originalName}" -> Json.toJson(value.${field.name})"""
-        }.mkString(",\n")
-      }
-s"""
-new Writes[${resource.name}] {
-  def writes(value: ${resource.name}) = {
-    Json.obj(
-${writeFields.indent(6)}
-    )
-  }
-}
-"""
     }
   }
 }

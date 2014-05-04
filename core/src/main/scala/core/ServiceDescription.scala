@@ -141,16 +141,33 @@ object Datatype {
   case object Boolean extends Datatype("boolean")
   case object Decimal extends Datatype("decimal")
   case class List(override val name: String, valueType: Datatype) extends Datatype(name)
-  case class UserType (override val name: String) extends Datatype(name)
-  class Reference(val underlying: core.Reference) extends Datatype(s"partial[${underlying.resourceName}") {
-    def resourceName = underlying.resourceName
+  case class UserType(resourceName: String,
+                      includedFields: Option[Set[String]],
+                      resourceFunc: () => Resource) extends Datatype(resourceName) {
+
+    lazy val resource: Resource = resourceFunc()
+
+    def fields = includedFields match {
+      case None => resource.fields
+      case Some(names) => resource.fields.filter { field =>
+        names(field.name)
+      }
+    }
+  }
+  class Reference(underlying: core.Reference)
+  extends UserType(underlying.resourceName,
+                   Some(Set(underlying.fieldName)),
+                   underlying.resourceFunc) {
+    def field = underlying.field
   }
 
   val All = Seq(String, Integer, Long, Boolean, Decimal)
 
   private val arrayRegex = """^\[(.*)\]$""".r
 
-  def apply(name: String): Datatype = arrayRegex.findFirstMatchIn(name).map {
+  def apply(name: String,
+            includedFields: Option[Set[String]] = None,
+            resources: => Seq[Resource] = Nil): Datatype = arrayRegex.findFirstMatchIn(name).map {
     m =>
       val valueTypeName = m.group(1)
       require(
@@ -166,7 +183,8 @@ object Datatype {
       case Long.name => Long
       case Boolean.name => Boolean
       case Decimal.name => Decimal
-      case _ => new UserType(name)
+      case _ => new UserType(name, includedFields,
+                             () => resources.find(_.name == name).get)
     }
   }
 
@@ -259,7 +277,7 @@ object Field {
 
       case _: Datatype.Reference =>
         sys.error("Defaults not supported for references.")
-      case Datatype.UserType(_) =>
+      case Datatype.UserType(_, _, _) =>
         sys.error("Defaults not supported for user defined types.")
       case Datatype.List(_, _) =>
         sys.error("Defaults not supported for user defined lists.")

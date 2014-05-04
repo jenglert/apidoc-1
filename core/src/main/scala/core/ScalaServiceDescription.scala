@@ -36,11 +36,11 @@ class ScalaServiceDescription(serviceDescription: ServiceDescription)
   def description = serviceDescription.description.map(textToComment).getOrElse("")
 
   def resources = serviceDescription.resources.map { resource =>
-    new ScalaResource(resource, Set.empty)
+    new ScalaResource(resource)
   }
 }
 
-class ScalaResource(resource: Resource, includedFields: Set[String])
+class ScalaResource(resource: Resource)
 {
   def name = singular(underscoreToInitCap(resource.name))
 
@@ -48,16 +48,7 @@ class ScalaResource(resource: Resource, includedFields: Set[String])
 
   def description = resource.description.map(textToComment).getOrElse("")
 
-  def fields = {
-    val included: Seq[Field] = if (includedFields.isEmpty) {
-      resource.fields
-    } else {
-      resource.fields.filter(f => includedFields(f.name))
-    }
-    included.map { field =>
-      new ScalaField(field)
-    }
-  }.sorted
+  def fields = resource.fields.map(new ScalaField(_)).sorted
 
   def argList = fieldsToArgList(fields, isParams = false)
 
@@ -92,7 +83,9 @@ class ScalaField(field: Field) extends Source with Ordered[ScalaField] {
 
   def dataType: ScalaDataType = ScalaDataType(field.dataType, field.format)
 
-  def isReference = dataType.getClass == classOf[ScalaDataType.Reference]
+  def isReference = classOf[ScalaDataType.Reference].isAssignableFrom(dataType.getClass)
+
+  def isUserType = classOf[ScalaDataType.UserType].isAssignableFrom(dataType.getClass)
 
   def description: String = field.description.map(textToComment).getOrElse("")
 
@@ -166,18 +159,17 @@ object ScalaDataType {
   extends Basic(s"List[${valueType.name}]", dataType)
 
   class UserType(dataType: Datatype.UserType) extends ScalaDataType(dataType) {
-    override def name: String = underscoreToInitCap(dataType.name)
+    override def name: String = singular(underscoreToInitCap(dataType.name))
+
+    def resource = new ScalaResource(dataType.resource)
+
+    def fields = dataType.fields.map { field =>
+      new ScalaField(field)
+    }.sorted
   }
 
-  class Reference(dataType: Datatype.Reference) extends ScalaDataType(dataType) {
-    override def name: String = resource.name
-
-    def resource = new ScalaResource(
-      resource  = dataType.underlying.resource,
-      includedFields = Set(dataType.underlying.fieldName)
-    )
-
-    def field = new ScalaField(dataType.underlying.field)
+  class Reference(dataType: Datatype.Reference) extends UserType(dataType) {
+    def field = new ScalaField(dataType.field)
   }
 
   def apply(dataType: Datatype, format: Option[Format]): ScalaDataType = {
@@ -194,8 +186,8 @@ object ScalaDataType {
       case Datatype.Decimal => BigDecimal
       case list: Datatype.List =>
         new List(list, apply(list.valueType, format))
-      case ut: Datatype.UserType => new UserType(ut)
       case r: Datatype.Reference => new Reference(r)
+      case ut: Datatype.UserType => new UserType(ut)
     }
   }
 }
