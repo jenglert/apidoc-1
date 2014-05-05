@@ -141,6 +141,7 @@ ${dataType.play2JsonWriter.indent}
 case class ScalaResponse(response: Response, packageName: String) {
   def code = response.code
 
+  // TODO better name for generated type (possibly include the resourceName)
   def typeName = s"Status$code"
 
   def dataType = ScalaDataType(response.dataType, None, packageName + "." + typeName)
