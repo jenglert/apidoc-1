@@ -106,7 +106,7 @@ object Resource {
               entries.map { entry =>
                 val code = (entry \ "code").as[Int]
                 val typeName = (entry \ "result").as[String]
-                new Response(code, Datatype(typeName))
+                new Response(code, Datatype(typeName, None, resources))
               }
             case _: JsUndefined => Nil
             case value => sys.error(s"encountered illegal value for resposne $value")
@@ -167,14 +167,14 @@ object Datatype {
 
   def apply(name: String,
             includedFields: Option[Set[String]] = None,
-            resources: => Seq[Resource] = Nil): Datatype = arrayRegex.findFirstMatchIn(name).map {
+            resources: => Seq[Resource]): Datatype = arrayRegex.findFirstMatchIn(name).map {
     m =>
       val valueTypeName = m.group(1)
       require(
         !valueTypeName.matches(arrayRegex.toString),
         "Nested lists are not supported."
       )
-      val valueType = apply(valueTypeName)
+      val valueType = apply(valueTypeName, None, resources)
       new List(name, valueType)
   }.getOrElse {
     name match {
@@ -183,8 +183,14 @@ object Datatype {
       case Long.name => Long
       case Boolean.name => Boolean
       case Decimal.name => Decimal
-      case _ => new UserType(name, includedFields,
-                             () => resources.find(_.name == name).get)
+      case n => new UserType(name, includedFields,
+                             () => {
+                               resources.find { r: Resource =>
+                                 Text.singular(r.name.toLowerCase) == n.toLowerCase
+                               }.getOrElse {
+                                 sys.error(s"failed to find a resource named $n")
+                               }
+                             })
     }
   }
 
@@ -223,7 +229,7 @@ object Field {
       new Datatype.Reference(r)
     }.getOrElse {
       val datatypeName = (json \ "type").as[String]
-      Datatype(datatypeName)
+      Datatype(datatypeName, None, resources)
     }
 
     val default = asOptString(json, "default")
