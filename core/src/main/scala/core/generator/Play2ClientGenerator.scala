@@ -238,13 +238,11 @@ ${cases.indent}
             Some(s"""type ${param.name.capitalize} = ${underlyingType.name}""")
           case ut: UserType =>
             val resourceName = ut.resource.name
-            val superClass = if (ut.isPartial) s"$packageName.ModelView[$packageName.$resourceName]" else "Model"
-            Some(generateModelClass(param.name.capitalize, ut.fields, superClass))
+            Some(generateModelClass(param.name.capitalize, ut.fields))
             // TODO support nested lists
           case List(_, ut: UserType) =>
             val resourceName = ut.resource.name
-            val superClass = if (ut.isPartial) s"$packageName.ModelView[$packageName.$resourceName]" else "Model"
-            Some(generateModelClass(param.name.capitalize, ut.fields, superClass))
+            Some(generateModelClass(param.name.capitalize, ut.fields))
           case _ => None
         }
       }
@@ -253,13 +251,11 @@ ${cases.indent}
         response.dataType match {
           case ut: UserType =>
             val resourceName = ut.resource.name
-            val superClass = if (ut.isPartial) s"$packageName.ModelView[$packageName.$resourceName]" else "Model"
-            Some(generateModelClass("Status" + response.code, ut.fields, superClass))
+            Some(generateModelClass("Status" + response.code, ut.fields))
             // TODO support nested lists
           case List(_, ut: UserType) =>
             val resourceName = ut.resource.name
-            val superClass = if (ut.isPartial) s"$packageName.ModelView[$packageName.$resourceName]" else "Model"
-            Some(generateModelClass("Status" + response.code, ut.fields, superClass))
+            Some(generateModelClass("Status" + response.code, ut.fields))
           case _ => None
         }
       }
@@ -277,7 +273,8 @@ ${applyBody.indent(4)}
 }"""
   }
 
-  def generateModelClass(name: String, fields: Seq[ScalaField], superClass: String): String = {
+  // TODO move type defs into ScalaServiceDescription
+  def generateModelClass(name: String, fields: Seq[ScalaField]): String = {
 
     def fieldDefs = {
       val generated = fields.map { field =>
@@ -302,8 +299,7 @@ ${applyBody.indent(4)}
               Some {
                 generateModelClass(
                   name = field.name.capitalize,
-                  fields = dataType.fields,
-                  superClass = s"$packageName.ModelView[$packageName.${dataType.resource.name}]")
+                  fields = dataType.fields)
               }
             } else {
               Some(s"type ${field.name.capitalize} = $packageName.${dataType.resource.name}")
@@ -324,7 +320,7 @@ ${applyBody.indent(4)}
     }
 
 s"""
-type $name = $superClass {
+type $name = {
 ${fieldDefs.indent}
 }
 
@@ -337,7 +333,7 @@ ${companionDef}"""
     def operations: Seq[Source] = resource.operations.map(Operation(_))
 
     override def src: String = s"""
-${generateModelClass(resource.name, fields, "Model")}
+${generateModelClass(resource.name, fields)}
 
 object ${resource.name}Client extends Client {
   def resource = "$path"
