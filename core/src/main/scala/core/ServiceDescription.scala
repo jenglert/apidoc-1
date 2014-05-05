@@ -50,6 +50,7 @@ case class Field(name: String,
                  multiple: Boolean = false,
                  format: Option[Format] = None,
                  references: Option[Reference] = None,
+                 includedFields: Option[Set[String]] = None,
                  default: Option[String] = None,
                  example: Option[String] = None,
                  minimum: Option[Long] = None,
@@ -106,7 +107,8 @@ object Resource {
               entries.map { entry =>
                 val code = (entry \ "code").as[Int]
                 val typeName = (entry \ "result").as[String]
-                new Response(code, Datatype(typeName, None, resources))
+                val includedFields = (entry \ "fields").asOpt[Set[String]]
+                new Response(code, Datatype(typeName, includedFields, resources))
               }
             case _: JsUndefined => Nil
             case value => sys.error(s"encountered illegal value for resposne $value")
@@ -154,10 +156,14 @@ object Datatype {
       }
     }
   }
-  class Reference(underlying: core.Reference)
-  extends UserType(underlying.resourceName,
-                   Some(Set(underlying.fieldName)),
-                   underlying.resourceFunc) {
+  class Reference(underlying: core.Reference, includedFields: Option[Set[String]])
+  extends UserType(
+    underlying.resourceName,
+    includedFields.map { names: Set[String] =>
+      names + underlying.fieldName
+    }.orElse(Some(Set(underlying.fieldName))),
+    underlying.resourceFunc) {
+
     def field = underlying.field
   }
 
@@ -166,15 +172,11 @@ object Datatype {
   private val arrayRegex = """^\[(.*)\]$""".r
 
   def apply(name: String,
-            includedFields: Option[Set[String]] = None,
+            includedFields: Option[Set[String]],
             resources: => Seq[Resource]): Datatype = arrayRegex.findFirstMatchIn(name).map {
     m =>
       val valueTypeName = m.group(1)
-      require(
-        !valueTypeName.matches(arrayRegex.toString),
-        "Nested lists are not supported."
-      )
-      val valueType = apply(valueTypeName, None, resources)
+      val valueType = apply(valueTypeName, includedFields, resources)
       new List(name, valueType)
   }.getOrElse {
     name match {
@@ -225,11 +227,12 @@ object Field {
     // call-by-name to support circular references
     resources: => Seq[Resource]): Field = {
     val reference = (json \ "references").asOpt[String].map { Reference(_, resources) }
+    val includedFields = ( json \ "fields").asOpt[Set[String]]
     val datatype = reference.map { r =>
-      new Datatype.Reference(r)
+      new Datatype.Reference(r, includedFields)
     }.getOrElse {
       val datatypeName = (json \ "type").as[String]
-      Datatype(datatypeName, None, resources)
+      Datatype(datatypeName, includedFields, resources)
     }
 
     val default = asOptString(json, "default")
@@ -241,6 +244,7 @@ object Field {
           references = reference,
           required = (json \ "required").asOpt[Boolean].getOrElse(true),
           multiple = (json \ "multiple").asOpt[Boolean].getOrElse(false),
+          includedFields = includedFields,
           default = default,
           minimum = (json \ "minimum").asOpt[Long],
           maximum = (json \ "maximum").asOpt[Long],

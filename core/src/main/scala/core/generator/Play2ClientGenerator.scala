@@ -306,7 +306,7 @@ ${applyBody.indent(4)}
                   superClass = s"$packageName.ModelView[$packageName.${dataType.resource.name}]")
               }
             } else {
-              Some(s"type ${field.name.capitalize} = $packageName.${dataType.name}")
+              Some(s"type ${field.name.capitalize} = $packageName.${dataType.resource.name}")
             }
           }
           field.dataType match {
@@ -319,7 +319,7 @@ ${applyBody.indent(4)}
       }
       typeRefDefs.map(_.indent) match {
         case Nil => ""
-        case defs => defs.mkString(s"object ${name} {\n", "\n", "}\n")
+        case defs => defs.mkString(s"object ${name} {\n", "\n", "\n}")
       }
     }
 
