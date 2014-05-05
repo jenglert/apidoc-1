@@ -251,6 +251,7 @@ ${cases.indent}
         response.dataType match {
           case ut: UserType =>
             val resourceName = ut.resource.name
+            // TODO better name for generated type (possibly include the resourceName)
             Some(generateModelClass("Status" + response.code, ut.fields))
             // TODO support nested lists
           case List(_, ut: UserType) =>
