@@ -229,7 +229,6 @@ ${cases.indent}
     }
 
     def typeDefs: String = {
-      // TODO generate types for parameters
       val paramTypeDefs = parameters.flatMap { param =>
         import ScalaDataType._
         param.dataType match {
