@@ -106,7 +106,8 @@ object Resource {
             case JsArray(entries) =>
               entries.map { entry =>
                 val code = (entry \ "code").as[Int]
-                val typeName = (entry \ "result").asOpt[String].getOrElse(Datatype.Unit.name)
+                val typeName = (entry \ "type").asOpt[String].getOrElse(Datatype.Unit.name)
+                println("TYPE NAME: " + typeName)
                 val includedFields = (entry \ "fields").asOpt[Set[String]]
                 new Response(code, Datatype(typeName, includedFields, resources))
               }
@@ -284,14 +285,23 @@ object Field {
         BigDecimal(value)
       }
 
+      case Datatype.Unit => {
+        sys.error("Defaults not supported for unit datatype")
+      }
+
       case Datatype.String => ()
 
-      case _: Datatype.Reference =>
+      case _: Datatype.Reference => {
         sys.error("Defaults not supported for references.")
-      case Datatype.UserType(_, _, _) =>
-        sys.error("Defaults not supported for user defined types.")
-      case Datatype.List(_, _) =>
-        sys.error("Defaults not supported for user defined lists.")
+      }
+
+      case Datatype.UserType(_, _, _) => {
+        sys.error("Defaults not supported for user defined types")
+      }
+
+      case Datatype.List(_, _) => {
+        sys.error("Defaults not supported for user defined lists")
+      }
     }
   }
 

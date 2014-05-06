@@ -34,7 +34,7 @@
                         { "name": "offset", "type": "integer", "default": 0, "description": "Used to paginate. First page of results is 0.", "minimum": 0 }
                     ],
                     "responses": [
-                      { "code": 200, "result": "[vendor]" }
+                      { "code": 200, "type": "[vendor]" }
                     ]
                 },
 
@@ -46,7 +46,7 @@
                         { "name": "guid", "type": "string" }
                     ],
                     "responses": [
-                      { "code": 200, "result": "vendor" }
+                      { "code": 200, "type": "vendor" }
                     ]
                 },
 
@@ -56,8 +56,8 @@
                         { "name": "name", "type": "string" }
                     ],
                     "responses": [
-                      { "code": 201, "result": "vendor" },
-                      { "code": 409, "result": "validation" }
+                      { "code": 201, "type": "vendor" },
+                      { "code": 409, "type": "validation" }
                     ]
                 },
 
@@ -94,7 +94,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[item]", "fields": ["guid", "vendor", "number", "quantity"] }
+                        { "code": 200, "type": "[item]", "fields": ["guid", "vendor", "number", "quantity"] }
                     ]
                 },
                 {
@@ -105,7 +105,7 @@
                         { "name": "guid", "type": "string", "format": "uuid", "references": "items.guid" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "item" }
+                        { "code": 200, "type": "item" }
                     ]
                 },
                 {
@@ -116,7 +116,7 @@
                         { "name": "quantity", "type": "long", "required": false, "default": 0 }
                     ],
                     "responses": [
-                        { "code": 201, "result": "item" }
+                        { "code": 201, "type": "item" }
                     ]
                 },
                 {
@@ -128,7 +128,7 @@
                         { "name": "quantity", "type": "long" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "item" }
+                        { "code": 200, "type": "item" }
                     ]
                 },
                 {
@@ -141,7 +141,7 @@
                         { "name": "quantity", "type": "long" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "item" }
+                        { "code": 200, "type": "item" }
                     ]
                 },
                 {
@@ -174,7 +174,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[term]" }
+                        { "code": 200, "type": "[term]" }
                     ]
                 },
                 {
@@ -185,7 +185,7 @@
                         { "name": "description", "type": "string", "required": false }
                     ],
                     "responses": [
-                        { "code": 200, "result": "term" }
+                        { "code": 200, "type": "term" }
                     ]
                 },
                 {
@@ -223,7 +223,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[agreement]" }
+                        { "code": 200, "type": "[agreement]" }
                     ]
                 },
                 {
@@ -237,7 +237,7 @@
                         { "name": "currency", "type": "string", "description": "3-character upper case iso4217 code for this currency", "example": "USD or EUR" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "agreement" }
+                        { "code": 200, "type": "agreement" }
                     ]
                 },
                 {
@@ -271,7 +271,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[shipment_schedule]" }
+                        { "code": 200, "type": "[shipment_schedule]" }
                     ]
                 },
                 {
@@ -282,7 +282,7 @@
                         { "name": "begin_datetime", "type": "string", "format": "date-time-iso8601" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "shipment_schedule" }
+                        { "code": 200, "type": "shipment_schedule" }
                     ]
                 },
                 {
@@ -312,7 +312,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[planned_shipment]" }
+                        { "code": 200, "type": "[planned_shipment]" }
                     ]
                 }
             ]
@@ -349,7 +349,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[purchase]" }
+                        { "code": 200, "type": "[purchase]" }
                     ]
                 },
                 {
@@ -360,7 +360,7 @@
                         { "name": "guid", "type": "string" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "purchase" }
+                        { "code": 200, "type": "purchase" }
                     ]
                 },
                 {
@@ -382,7 +382,7 @@
                         { "name": "currency", "type": "string", "description": "3-character upper case iso4217 code for this currency. Validated against the currency in the agreement.", "example": "USD or EUR" }
                     ],
                     "responses": [
-                        { "code": 201, "result": "purchase" }
+                        { "code": 201, "type": "purchase" }
                     ]
                 }
             ]
@@ -419,7 +419,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[shipment_request]" }
+                        { "code": 200, "type": "[shipment_request]" }
                     ]
                 },
                 {
@@ -430,7 +430,7 @@
                         { "name": "guid", "type": "string" }
                     ],
                     "responses": [
-                        { "code": 201, "result": "shipment_request" }
+                        { "code": 201, "type": "shipment_request" }
                     ]
                 }
             ]
@@ -456,7 +456,7 @@
                         { "name": "offset", "type": "integer", "default": 0 }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[shipment_request_item]" }
+                        { "code": 200, "type": "[shipment_request_item]" }
                     ]
                 }
             ]
@@ -479,7 +479,7 @@
                         { "name": "guid", "type": "string" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "[receipt]" }
+                        { "code": 200, "type": "[receipt]" }
                     ]
                 },
                 {
@@ -491,7 +491,7 @@
                         { "name": "price", "type": "decimal" }
                     ],
                     "responses": [
-                        { "code": 200, "result": "receipt" }
+                        { "code": 200, "type": "receipt" }
                     ]
                 },
                 {
