@@ -133,7 +133,11 @@ case class ServiceDescriptionValidator(apiJson: String) {
       val invalidResponses = resource.operations.flatMap { op =>
         op.responses.collect {
           case response if NoContent(response.code) =>
-            Some(s"${resource.name} ${op.method}${path(op)} contains response code ${response.code}, but ${response.code} should not have a body.")
+            if (response.dataType.name != Datatype.Unit.name) {
+              Some(s"${resource.name} ${op.method}${path(op)} - response code ${response.code} must have a result type of[${Datatype.Unit.name}] and not[${response.dataType.name}]")
+            } else {
+              None
+            }
           case _ @ Response(_, Datatype.UserType(_, _, _)) | Response(_, Datatype.List(_, Datatype.UserType(_, _, _))) => None // OK
           case _ =>
             Some(s"${resource.name} ${op.method}${path(op)} has invalid type. Must be either a resource or list of resources.")

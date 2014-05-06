@@ -106,12 +106,12 @@ object Resource {
             case JsArray(entries) =>
               entries.map { entry =>
                 val code = (entry \ "code").as[Int]
-                val typeName = (entry \ "result").as[String]
+                val typeName = (entry \ "result").asOpt[String].getOrElse(Datatype.Unit.name)
                 val includedFields = (entry \ "fields").asOpt[Set[String]]
                 new Response(code, Datatype(typeName, includedFields, resources))
               }
             case _: JsUndefined => Nil
-            case value => sys.error(s"encountered illegal value for resposne $value")
+            case value => sys.error(s"encountered illegal value for response $value")
            }
 
            Operation(method = (json \ "method").as[String],
@@ -142,6 +142,7 @@ object Datatype {
   case object Long extends Datatype("long")
   case object Boolean extends Datatype("boolean")
   case object Decimal extends Datatype("decimal")
+  case object Unit extends Datatype("unit")
   case class List(override val name: String, valueType: Datatype) extends Datatype(name)
   case class UserType(resourceName: String,
                       includedFields: Option[Set[String]],
