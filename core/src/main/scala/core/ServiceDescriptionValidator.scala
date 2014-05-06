@@ -95,7 +95,7 @@ case class ServiceDescriptionValidator(apiJson: String) {
             case None => Some(s"Resource ${resource.name} field ${field.name} reference ${ref.label} points to a non existent resource (${ref.resourceName})")
 
             case Some(r: Resource) => {
-              r.fields.find(f => f.name == ref.field ) match {
+              r.fields.find(f => f.name == ref.field.name ) match {
                 case None => Some(s"Resource ${resource.name} field ${field.name} reference ${ref.label} points to a non existent field (${ref.field})")
                 case Some(f: Field) => None
               }
