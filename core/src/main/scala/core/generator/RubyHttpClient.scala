@@ -258,6 +258,50 @@ require 'bigdecimal'
         new_hash
       end
 
+      def Helper.to_big_decimal(value, opts={})
+        required = opts.has_key?(:required) ? opts.delete(:required) : false
+        HttpClient::Preconditions.assert_empty_opts(opts)
+
+        if required
+          Preconditions.assert_class(value, String)
+        else
+          Preconditions.assert_class_or_nil(value, String)
+        end
+
+        value ? BigDecimal.new(value) : nil
+      end
+
+      def Helper.to_uuid(value, opts={})
+        required = opts.has_key?(:required) ? opts.delete(:required) : false
+        HttpClient::Preconditions.assert_empty_opts(opts)
+
+        if required
+          Preconditions.assert_class(value, String)
+        else
+          Preconditions.assert_class_or_nil(value, String)
+        end
+
+        if value
+          Preconditions.check_state(value.match(/^\w\w\w\w\w\w\w\w\-\w\w\w\w\-\w\w\w\w\-\w\w\w\w\-\w\w\w\w\w\w\w\w\w\w\w\w$/),
+                                    "Invalid guid[%s]" % value)
+        end
+
+        value
+      end
+
+      def Helper.to_date_time_is8601(value, opts={})
+        required = opts.has_key?(:required) ? opts.delete(:required) : false
+        HttpClient::Preconditions.assert_empty_opts(opts)
+
+        if required
+          Preconditions.assert_class(value, String)
+        else
+          Preconditions.assert_class_or_nil(value, String)
+        end
+
+        value ? DateTime.parse(value) : nil
+      end
+
     end
 
   end
