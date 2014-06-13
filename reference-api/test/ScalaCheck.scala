@@ -91,7 +91,7 @@ package referenceapi.test.models {
     
     implicit def arbUserList: org.scalacheck.Arbitrary[UserList] = org.scalacheck.Arbitrary {
       for {
-        list <- org.scalacheck.Arbitrary(org.scalacheck.Gen.listOf(org.scalacheck.Arbitrary {
+        users <- org.scalacheck.Arbitrary(org.scalacheck.Gen.listOf(org.scalacheck.Arbitrary {
           for {
             guid <- org.scalacheck.Arbitrary(org.scalacheck.Gen.resultOf { _: Unit => java.util.UUID.randomUUID }).arbitrary
             email <- org.scalacheck.Arbitrary(org.scalacheck.Gen.alphaStr).arbitrary
@@ -106,7 +106,17 @@ package referenceapi.test.models {
         }.arbitrary)).arbitrary
       } yield {
         new UserList(
-          list = list
+          users = users
+        )
+      }
+    }
+    
+    implicit def arbUserForm: org.scalacheck.Arbitrary[UserForm] = org.scalacheck.Arbitrary {
+      for {
+        email <- org.scalacheck.Arbitrary(org.scalacheck.Gen.alphaStr).arbitrary
+      } yield {
+        new UserForm(
+          email = email
         )
       }
     }

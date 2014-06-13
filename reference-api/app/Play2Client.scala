@@ -36,7 +36,10 @@ package referenceapi.models {
     active: Boolean
   )
   case class UserList(
-    list: scala.collection.Seq[User]
+    users: scala.collection.Seq[User]
+  )
+  case class UserForm(
+    email: String
   )
   case class Member(
     guid: java.util.UUID,
@@ -178,17 +181,33 @@ package referenceapi.models {
       {
         import play.api.libs.json._
         import play.api.libs.functional.syntax._
-        (__ \ "list").readNullable[scala.collection.Seq[User]].map { x =>
+        (__ \ "users").readNullable[scala.collection.Seq[User]].map { x =>
         x.getOrElse(Nil)
       }.map { x =>
-          new UserList(list = x)
+          new UserList(users = x)
         }
       }
     
     implicit val writesUserList: play.api.libs.json.Writes[UserList] =
       new play.api.libs.json.Writes[UserList] {
         def writes(x: UserList) = play.api.libs.json.Json.obj(
-          "list" -> play.api.libs.json.Json.toJson(x.list)
+          "users" -> play.api.libs.json.Json.toJson(x.users)
+        )
+      }
+    
+    implicit val readsUserForm: play.api.libs.json.Reads[UserForm] =
+      {
+        import play.api.libs.json._
+        import play.api.libs.functional.syntax._
+        (__ \ "email").read[String].map { x =>
+          new UserForm(email = x)
+        }
+      }
+    
+    implicit val writesUserForm: play.api.libs.json.Writes[UserForm] =
+      new play.api.libs.json.Writes[UserForm] {
+        def writes(x: UserForm) = play.api.libs.json.Json.obj(
+          "email" -> play.api.libs.json.Json.toJson(x.email)
         )
       }
     
@@ -299,16 +318,10 @@ package referenceapi {
 
     object Members {
       def post(
-        guid: java.util.UUID,
-        organization: java.util.UUID,
-        user: java.util.UUID,
-        role: String
+      
       )(implicit ec: scala.concurrent.ExecutionContext): scala.concurrent.Future[Response[Member]] = {
         val payload = play.api.libs.json.Json.obj(
-          "guid" -> play.api.libs.json.Json.toJson(guid),
-          "organization" -> play.api.libs.json.Json.toJson(organization),
-          "user" -> play.api.libs.json.Json.toJson(user),
-          "role" -> play.api.libs.json.Json.toJson(role)
+          
         )
         
         POST(s"/members", payload).map {
@@ -378,12 +391,10 @@ package referenceapi {
     
     object Organizations {
       def post(
-        guid: java.util.UUID,
-        name: String
+      
       )(implicit ec: scala.concurrent.ExecutionContext): scala.concurrent.Future[Response[Organization]] = {
         val payload = play.api.libs.json.Json.obj(
-          "guid" -> play.api.libs.json.Json.toJson(guid),
-          "name" -> play.api.libs.json.Json.toJson(name)
+          
         )
         
         POST(s"/organizations", payload).map {
@@ -437,14 +448,10 @@ package referenceapi {
     
     object Users {
       def post(
-        guid: java.util.UUID,
-        email: String,
-        active: Boolean
+      
       )(implicit ec: scala.concurrent.ExecutionContext): scala.concurrent.Future[Response[User]] = {
         val payload = play.api.libs.json.Json.obj(
-          "guid" -> play.api.libs.json.Json.toJson(guid),
-          "email" -> play.api.libs.json.Json.toJson(email),
-          "active" -> play.api.libs.json.Json.toJson(active)
+          
         )
         
         POST(s"/users", payload).map {
