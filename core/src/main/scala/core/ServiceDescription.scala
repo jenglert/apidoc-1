@@ -92,10 +92,6 @@ object Operation {
     // Capture any path parameters that were not explicitly annotated
     val pathParameters = internal.namedParameters.filter { name => !internalParamNames.contains(name) }.map { Parameter.fromPath(_) }
 
-    val query: Seq[Parameter] = internal.query.map { p =>
-      Parameter(models, p, ParameterLocation.Query)
-    }
-
     if (method == "GET") {
       require(internal.body.isEmpty, "GET should not have a body.")
     }
@@ -109,7 +105,7 @@ object Operation {
               method = method,
               path = internal.path,
               description = internal.description,
-              parameters = pathParameters ++ internalParams ++ query,
+              parameters = pathParameters ++ internalParams,
               body = body,
               responses = internal.responses.map { Response(_) })
   }
