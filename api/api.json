@@ -255,6 +255,7 @@
                     "method": "POST",
                     "path": "/:guid/accept",
                     "description": "Accepts this membership request. User will become a member of the specified organization.",
+                    "body": "unit",
                     "responses": {
                         "204": { "type": "unit" },
                         "409": { "type": "[error]" }
@@ -265,6 +266,7 @@
                     "method": "POST",
                     "path": "/:guid/decline",
                     "description": "Declines this membership request. User will NOT become a member of the specified organization.",
+                    "body": "unit",
                     "responses": {
                         "204": { "type": "unit" },
                         "409": { "type": "[error]" }
@@ -351,6 +353,7 @@
                     "method": "PUT",
                     "description": "Create or update the service with the specified version.",
                     "path": "/:version",
+                    "body": "file",
                     "responses": {
                         "200": { "type": "version" }
                     }
