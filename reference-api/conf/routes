@@ -5,5 +5,5 @@ POST     /users                     controllers.Users.post(active: Boolean ?= tr
 GET      /users                     controllers.Users.get(guid: Option[String], email: Option[String], active: Boolean ?= true)
 POST     /users/noop                controllers.Users.postNoop()
 POST     /members                   controllers.Members.post()
-GET      /members                   controllers.Members.get(guid: Option[String], organization_guid: Option[String], user_guid: Option[String], role: Option[String])
+GET      /members                   controllers.Members.get(guid: Option[String], organization: Option[String], user: Option[String], role: Option[String])
 GET      /members/:organization     controllers.Members.getByOrganization(organization: String)

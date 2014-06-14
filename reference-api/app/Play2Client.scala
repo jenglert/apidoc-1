@@ -337,8 +337,8 @@ package referenceapi {
       
       def get(
         guid: scala.Option[java.util.UUID] = None,
-        organizationGuid: scala.Option[java.util.UUID] = None,
-        userGuid: scala.Option[java.util.UUID] = None,
+        organization: scala.Option[java.util.UUID] = None,
+        user: scala.Option[java.util.UUID] = None,
         role: scala.Option[String] = None
       )(implicit ec: scala.concurrent.ExecutionContext): scala.concurrent.Future[Response[scala.collection.Seq[Member]]] = {
         val queryBuilder = List.newBuilder[(String, String)]
@@ -349,15 +349,15 @@ package referenceapi {
             }
           )(x)
         }
-        queryBuilder ++= organizationGuid.map { x =>
-          "organization_guid" -> (
+        queryBuilder ++= organization.map { x =>
+          "organization" -> (
             { x: java.util.UUID =>
               x.toString
             }
           )(x)
         }
-        queryBuilder ++= userGuid.map { x =>
-          "user_guid" -> (
+        queryBuilder ++= user.map { x =>
+          "user" -> (
             { x: java.util.UUID =>
               x.toString
             }
