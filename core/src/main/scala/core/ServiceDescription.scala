@@ -102,7 +102,7 @@ object Operation {
     val body: Option[Body] = internal.body.map { b =>
       Body(models, model, b)
     }.orElse {
-      Some(new Body(bodyType = new ModelBodyType(model), multiple = false, isDefault = true))
+      Some(new Body(bodyType = new ModelBodyType(model), multiple = false))
     }
 
     Operation(model = model,
@@ -422,7 +422,7 @@ object Field {
 
 }
 
-case class Body(bodyType: BodyType, multiple: Boolean, isDefault: Boolean)
+case class Body(bodyType: BodyType, multiple: Boolean)
 
 object Body {
   def apply(models: Seq[Model], resourceModel: Model, internal: InternalBody): Body = {
@@ -439,7 +439,7 @@ object Body {
       }
       new ModelBodyType(model)
     }
-    new Body(bodyType, multiple, false)
+    new Body(bodyType, multiple)
   }
 }
 
